@@ -5,43 +5,35 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.topic11.cs426.ui.theme.CS426Theme
+import com.slack.circuit.foundation.CircuitCompositionLocals
+import com.slack.circuit.foundation.NavigableCircuitContent
+import com.slack.circuit.foundation.navstack.rememberSaveableNavStack
+import com.slack.circuit.foundation.rememberCircuitNavigator
+import com.topic11.cs426.core.designsystem.FieldFlowTheme
+import com.topic11.cs426.core.navigation.DashboardScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val compositionRoot = FieldFlowCompositionRoot.create()
+
         setContent {
-            CS426Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+            FieldFlowTheme {
+                val navStack = rememberSaveableNavStack(root = DashboardScreen)
+                val navigator = rememberCircuitNavigator(navStack) {
+                    finish()
+                }
+
+                CircuitCompositionLocals(compositionRoot.circuit) {
+                    NavigableCircuitContent(
+                        navigator = navigator,
+                        navStack = navStack,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CS426Theme {
-        Greeting("Android")
     }
 }
