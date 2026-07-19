@@ -22,5 +22,17 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CS426"
+rootProject.name = "FieldFlow"
 include(":app")
+include(":domain")
+include(":data")
+include(":core:navigation")
+include(":core:database")
+include(":core:designsystem")
+include(":core:testing")
+include(":feature:dashboard")
+include(":feature:assets")
+include(":feature:templates")
+include(":feature:inspection")
+include(":feature:issues")
+include(":feature:reports")
