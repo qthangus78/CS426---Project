@@ -23,6 +23,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -38,4 +42,8 @@ dependencies {
     implementation(libs.circuit.runtime)
     implementation(libs.circuit.runtime.presenter)
     implementation(libs.circuit.runtime.ui)
+
+    testImplementation(libs.circuit.test)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

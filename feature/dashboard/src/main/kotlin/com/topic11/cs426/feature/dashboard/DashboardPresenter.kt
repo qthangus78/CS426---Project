@@ -11,6 +11,8 @@ import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.core.navigation.IssuesScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
+import com.topic11.cs426.core.designsystem.StatusTone
+import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
 import kotlinx.coroutines.flow.map
@@ -23,7 +25,12 @@ internal class DashboardPresenter(
     override fun present(): DashboardState {
         val presenterModels = remember(observeInspectionSummaries) {
             observeInspectionSummaries()
-                .map { summaries -> DashboardPresenterModel(isLoaded = true, inspections = summaries) }
+                .map { summaries ->
+                    DashboardPresenterModel(
+                        isLoaded = true,
+                        inspections = summaries.map { inspection -> inspection.toUiModel() },
+                    )
+                }
         }
         val presenterModel by presenterModels.collectAsState(initial = DashboardPresenterModel())
 
@@ -42,15 +49,48 @@ internal class DashboardPresenter(
             }
         }
 
-        return DashboardState(
-            isLoading = !presenterModel.isLoaded,
-            inspections = presenterModel.inspections,
-            eventSink = eventSink,
-        )
+        return when {
+            !presenterModel.isLoaded -> DashboardState.Loading
+            presenterModel.inspections.isEmpty() -> DashboardState.Empty(eventSink = eventSink)
+            else -> DashboardState.Content(
+                inspections = presenterModel.inspections,
+                eventSink = eventSink,
+            )
+        }
     }
 }
 
 private data class DashboardPresenterModel(
     val isLoaded: Boolean = false,
-    val inspections: List<InspectionSummary> = emptyList(),
+    val inspections: List<InspectionSummaryUi> = emptyList(),
 )
+
+private fun InspectionSummary.toUiModel(): InspectionSummaryUi {
+    return InspectionSummaryUi(
+        id = id,
+        title = title,
+        statusLabel = status.displayLabel(),
+        statusTone = status.statusTone(),
+        completedItems = completedItems,
+        totalItems = totalItems,
+        progressFraction = progressFraction.coerceIn(0f, 1f),
+    )
+}
+
+private fun InspectionStatus.displayLabel(): String {
+    return when (this) {
+        InspectionStatus.NOT_STARTED -> "Not started"
+        InspectionStatus.IN_PROGRESS -> "In progress"
+        InspectionStatus.COMPLETED -> "Completed"
+        InspectionStatus.SYNC_PENDING -> "Sync pending"
+    }
+}
+
+private fun InspectionStatus.statusTone(): StatusTone {
+    return when (this) {
+        InspectionStatus.NOT_STARTED -> StatusTone.Neutral
+        InspectionStatus.IN_PROGRESS -> StatusTone.InProgress
+        InspectionStatus.COMPLETED -> StatusTone.Success
+        InspectionStatus.SYNC_PENDING -> StatusTone.Warning
+    }
+}
