@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -17,13 +16,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.topic11.cs426.core.designsystem.EmptyState
 import com.topic11.cs426.core.designsystem.FieldFlowTopAppBar
 import com.topic11.cs426.core.designsystem.InspectionSummaryCard
+import com.topic11.cs426.core.designsystem.LoadingContent
 import com.topic11.cs426.core.designsystem.StatusBadge
 import com.topic11.cs426.core.designsystem.StatusTone
-import com.topic11.cs426.domain.model.InspectionStatus
-import com.topic11.cs426.domain.model.InspectionSummary
 
 @Composable
 internal fun DashboardUi(
@@ -37,50 +37,75 @@ internal fun DashboardUi(
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .testTag("dashboard-content"),
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusBadge(
-                        label = "Architecture Bootstrap",
-                        tone = StatusTone.Neutral,
-                    )
-                    Text(
-                        text = "Inspection overview",
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
+                DashboardHeader()
+            }
+
+            when (state) {
+                DashboardState.Loading -> {
+                    item {
+                        LoadingContent(
+                            label = "Loading inspections",
+                            modifier = Modifier.testTag("dashboard-loading"),
+                        )
+                    }
                 }
-            }
 
-            item {
-                QuickAccessButtons(eventSink = state.eventSink)
-            }
+                is DashboardState.Empty -> {
+                    item {
+                        QuickAccessButtons(eventSink = state.eventSink)
+                    }
+                    item {
+                        EmptyState(
+                            title = "No inspections available",
+                            message = "Inspection summaries will appear here when a repository emits them.",
+                            modifier = Modifier.testTag("dashboard-empty"),
+                        )
+                    }
+                }
 
-            if (state.isLoading) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        CircularProgressIndicator()
+                is DashboardState.Content -> {
+                    item {
+                        QuickAccessButtons(eventSink = state.eventSink)
+                    }
+                    items(
+                        items = state.inspections,
+                        key = { inspection -> inspection.id.value },
+                    ) { inspection ->
+                        InspectionSummaryRow(
+                            inspection = inspection,
+                            onClick = {
+                                state.eventSink(DashboardEvent.InspectionSelected(inspection.id))
+                            },
+                        )
                     }
                 }
             }
-
-            items(
-                items = state.inspections,
-                key = { inspection -> inspection.id.value },
-            ) { inspection ->
-                InspectionSummaryRow(
-                    inspection = inspection,
-                    onClick = {
-                        state.eventSink(DashboardEvent.InspectionSelected(inspection.id))
-                    },
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun DashboardHeader() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatusBadge(
+            label = "Architecture Bootstrap",
+            tone = StatusTone.Neutral,
+        )
+        Text(
+            text = "Inspection overview",
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            text = "Bootstrap slice with deterministic fake inspection summaries and read-only inspection navigation.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -88,7 +113,10 @@ internal fun DashboardUi(
 private fun QuickAccessButtons(
     eventSink: (DashboardEvent) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier.testTag("dashboard-quick-access"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Text(
             text = "Quick access",
             style = MaterialTheme.typography.titleMedium,
@@ -99,13 +127,17 @@ private fun QuickAccessButtons(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("dashboard-assets"),
                 onClick = { eventSink(DashboardEvent.AssetsSelected) },
             ) {
                 Text("Assets")
             }
             OutlinedButton(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("dashboard-templates"),
                 onClick = { eventSink(DashboardEvent.TemplatesSelected) },
             ) {
                 Text("Templates")
@@ -117,13 +149,17 @@ private fun QuickAccessButtons(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedButton(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("dashboard-issues"),
                 onClick = { eventSink(DashboardEvent.IssuesSelected) },
             ) {
                 Text("Issues")
             }
             OutlinedButton(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("dashboard-reports"),
                 onClick = { eventSink(DashboardEvent.ReportsSelected) },
             ) {
                 Text("Reports")
@@ -134,34 +170,17 @@ private fun QuickAccessButtons(
 
 @Composable
 private fun InspectionSummaryRow(
-    inspection: InspectionSummary,
+    inspection: InspectionSummaryUi,
     onClick: () -> Unit,
 ) {
     InspectionSummaryCard(
         title = inspection.title,
-        statusLabel = inspection.status.displayLabel(),
-        statusTone = inspection.status.statusTone(),
+        statusLabel = inspection.statusLabel,
+        statusTone = inspection.statusTone,
         completedItems = inspection.completedItems,
         totalItems = inspection.totalItems,
         progressFraction = inspection.progressFraction,
         onClick = onClick,
+        modifier = Modifier.testTag("inspection-card-${inspection.id.value}"),
     )
-}
-
-private fun InspectionStatus.displayLabel(): String {
-    return when (this) {
-        InspectionStatus.NOT_STARTED -> "Not started"
-        InspectionStatus.IN_PROGRESS -> "In progress"
-        InspectionStatus.COMPLETED -> "Completed"
-        InspectionStatus.SYNC_PENDING -> "Sync pending"
-    }
-}
-
-private fun InspectionStatus.statusTone(): StatusTone {
-    return when (this) {
-        InspectionStatus.NOT_STARTED -> StatusTone.Neutral
-        InspectionStatus.IN_PROGRESS -> StatusTone.InProgress
-        InspectionStatus.COMPLETED -> StatusTone.Success
-        InspectionStatus.SYNC_PENDING -> StatusTone.Warning
-    }
 }

@@ -13,13 +13,13 @@ import com.topic11.cs426.core.testing.RecordingInspectionRepository
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DashboardPresenterTest {
     @Test
-    fun `present emits loading then sample inspections`() = runTest {
+    fun `present emits loading then content with sample inspections`() = runTest {
         val repository = RecordingInspectionRepository()
         val navigator = FakeNavigator(DashboardScreen)
         val presenter = DashboardPresenter(
@@ -29,12 +29,32 @@ class DashboardPresenterTest {
 
         presenter.test {
             val loading = awaitItem()
-            assertTrue(loading.isLoading)
-            assertEquals(emptyList<Any>(), loading.inspections)
+            assertEquals(DashboardState.Loading, loading)
 
-            val content = awaitItem()
-            assertFalse(content.isLoading)
-            assertEquals(InspectionTestFixtures.inspectionSummaries, content.inspections)
+            val content = awaitItem() as DashboardState.Content
+            assertEquals(InspectionTestFixtures.inspectionSummaries.size, content.inspections.size)
+            assertEquals(InspectionTestFixtures.computerLab.id, content.inspections[0].id)
+            assertEquals("Computer Lab I.44", content.inspections[0].title)
+            assertEquals("In progress", content.inspections[0].statusLabel)
+            assertEquals(0.6f, content.inspections[0].progressFraction, 0.0f)
+            assertNotNull(content.eventSink)
+        }
+    }
+
+    @Test
+    fun `present emits empty state when repository has no inspections`() = runTest {
+        val repository = RecordingInspectionRepository(initialSummaries = emptyList())
+        val navigator = FakeNavigator(DashboardScreen)
+        val presenter = DashboardPresenter(
+            observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
+            navigator = navigator,
+        )
+
+        presenter.test {
+            assertEquals(DashboardState.Loading, awaitItem())
+
+            val empty = awaitItem()
+            assertTrue(empty is DashboardState.Empty)
         }
     }
 
@@ -49,7 +69,7 @@ class DashboardPresenterTest {
 
         presenter.test {
             awaitItem()
-            val content = awaitItem()
+            val content = awaitItem() as DashboardState.Content
             val selectedInspection = content.inspections.first()
 
             content.eventSink(DashboardEvent.InspectionSelected(selectedInspection.id))
@@ -82,7 +102,7 @@ class DashboardPresenterTest {
 
         presenter.test {
             awaitItem()
-            val content = awaitItem()
+            val content = awaitItem() as DashboardState.Content
 
             content.eventSink(event)
 

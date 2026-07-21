@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 fun FeaturePlaceholder(
     title: String,
     message: String,
+    details: String? = null,
     futureResponsibilities: List<String>,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -42,6 +43,13 @@ fun FeaturePlaceholder(
                 text = message,
                 style = MaterialTheme.typography.titleMedium,
             )
+            if (details != null) {
+                Text(
+                    text = details,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Future responsibilities",
