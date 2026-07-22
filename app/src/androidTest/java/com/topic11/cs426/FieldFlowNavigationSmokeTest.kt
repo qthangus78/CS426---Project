@@ -19,10 +19,9 @@ class FieldFlowNavigationSmokeTest {
         assertDashboardVisible()
 
         composeRule.onNodeWithText("Computer Lab I.44").performClick()
-        composeRule.onNodeWithText("Inspection").assertIsDisplayed()
-        composeRule.onNodeWithText("Computer Lab I.44").assertIsDisplayed()
-        composeRule.onNodeWithText("6 of 10 items complete").assertIsDisplayed()
-        composeRule.onNodeWithText("Full checklist workflow will be implemented later.").assertIsDisplayed()
+        composeRule.onNodeWithText("computer-lab-i-44").assertIsDisplayed()
+        composeRule.onNodeWithText("0 of 7 items answered").assertIsDisplayed()
+        composeRule.onNodeWithText("Equipment Condition").assertIsDisplayed()
         composeRule.onNodeWithText("Back").performClick()
         assertDashboardVisible()
 

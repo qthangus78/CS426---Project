@@ -12,6 +12,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -93,6 +94,12 @@ private fun InspectionEditingScreen(
                         item = item,
                         onAnswerChange = { answer ->
                             state.eventSink(InspectionEvent.AnswerChanged(item.id, answer))
+                        },
+                        onNoteChange = { note ->
+                            state.eventSink(InspectionEvent.NoteChanged(item.id, note))
+                        },
+                        onEvidenceAdd = { ref ->
+                            state.eventSink(InspectionEvent.EvidenceAdded(item.id, ref))
                         },
                     )
                 }
@@ -303,6 +310,8 @@ private fun ProgressRow(progress: InspectionProgress) {
 private fun ChecklistItemRow(
     item: ChecklistItemUi,
     onAnswerChange: (ChecklistAnswerUi) -> Unit,
+    onNoteChange: (String) -> Unit,
+    onEvidenceAdd: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val requiredMarker = if (item.required) " *" else ""
@@ -310,24 +319,50 @@ private fun ChecklistItemRow(
             text = "${item.prompt}$requiredMarker",
             style = MaterialTheme.typography.bodyMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val isCompliant = (item.answer as? ChecklistAnswerUi.Compliance)?.isCompliant
-            OutlinedButton(
-                onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = true)) },
-                colors = if (isCompliant == true) {
-                    ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    )
-                } else ButtonDefaults.outlinedButtonColors(),
-            ) { Text("Pass") }
-            OutlinedButton(
-                onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = false)) },
-                colors = if (isCompliant == false) {
-                    ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    )
-                } else ButtonDefaults.outlinedButtonColors(),
-            ) { Text("Fail") }
+        // Answer input — text field for Text answers, compliance buttons otherwise
+        when (val answer = item.answer) {
+            is ChecklistAnswerUi.Text -> {
+                OutlinedTextField(
+                    value = answer.value,
+                    onValueChange = { onAnswerChange(ChecklistAnswerUi.Text(it)) },
+                    label = { Text("Answer") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            else -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val isCompliant = (item.answer as? ChecklistAnswerUi.Compliance)?.isCompliant
+                    OutlinedButton(
+                        onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = true)) },
+                        colors = if (isCompliant == true) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            )
+                        } else ButtonDefaults.outlinedButtonColors(),
+                    ) { Text("Pass") }
+                    OutlinedButton(
+                        onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = false)) },
+                        colors = if (isCompliant == false) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                            )
+                        } else ButtonDefaults.outlinedButtonColors(),
+                    ) { Text("Fail") }
+                }
+            }
+        }
+        // Note field — always visible so inspectors can annotate any item
+        OutlinedTextField(
+            value = item.note,
+            onValueChange = onNoteChange,
+            label = { Text("Note (optional)") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Evidence button — shows count when evidence has been attached
+        TextButton(onClick = { onEvidenceAdd("photo-stub") }) {
+            Text(
+                if (item.evidenceCount > 0) "Evidence (${item.evidenceCount})" else "Add Evidence",
+            )
         }
     }
 }
