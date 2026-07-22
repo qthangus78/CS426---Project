@@ -7,11 +7,9 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.runtime.ui.Ui
 import com.slack.circuit.runtime.ui.ui
 import com.topic11.cs426.core.navigation.InspectionScreen
-import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
 
-class InspectionPresenterFactory(
-    private val observeInspection: ObserveInspectionUseCase,
-) : Presenter.Factory {
+// TODO Phase 2: add ObserveInspectionSessionUseCase to constructor once domain ships.
+class InspectionPresenterFactory : Presenter.Factory {
     override fun create(
         screen: Screen,
         navigator: Navigator,
@@ -20,7 +18,6 @@ class InspectionPresenterFactory(
         return when (screen) {
             is InspectionScreen -> InspectionPresenter(
                 screen = screen,
-                observeInspection = observeInspection,
                 navigator = navigator,
             )
             else -> null
