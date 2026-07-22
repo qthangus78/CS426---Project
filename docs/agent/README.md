@@ -11,6 +11,7 @@ The kit keeps agent work scoped, reviewable, and consistent with the FieldFlow a
 - `AGENTS.md` - durable repo rules for Codex and other agents.
 - `CONTEXT.md` - the minimum context pack and prompt template.
 - `EVALUATION.md` - the quality gate used before finishing a task.
+- `PROMPT_EXAMPLES.md` - token-efficient prompt patterns by task type.
 - `SOURCES.md` - external sources for tools, evaluation, and the FieldFlow stack.
 - `../../scripts/agent/verify.ps1` - scope-aware local verification.
 
@@ -61,5 +62,13 @@ Use `-Plan` when the environment is offline or you only want to see which Gradle
 ```powershell
 .\scripts\agent\verify.ps1 -Plan -Path domain\src\main\kotlin\com\topic11\cs426\domain\usecase\ObserveInspectionUseCase.kt
 ```
+
+## Task Closeout
+
+After each task:
+
+- Do not update `CONTEXT.md` unless durable project state changed.
+- Inspect changes with `git status --short` and `git diff --stat`.
+- Final response should name changed files, verification command, and any follow-up.
 
 When changing this agent environment, check `SOURCES.md` first and record any meaningful source comparison in the change note or final response.
