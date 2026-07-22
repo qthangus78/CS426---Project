@@ -66,6 +66,7 @@ fun FieldFlowTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
+        typography = FieldFlowTypography,
         content = content,
     )
 }

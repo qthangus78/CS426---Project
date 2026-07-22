@@ -40,6 +40,7 @@ class DashboardPresenterTest {
             assertEquals(1, content.overview.inProgressInspections)
             assertEquals(1, content.overview.syncPendingInspections)
             assertEquals(InspectionFilterUi.ALL, content.selectedFilter)
+            assertEquals(false, content.isAboutVisible)
             assertEquals(InspectionTestFixtures.computerLab.id, content.heroInspection?.id)
             assertEquals(InspectionTestFixtures.inspectionSummaries.size, content.filteredInspections.size)
             assertEquals(InspectionTestFixtures.computerLab.id, content.filteredInspections[0].id)
@@ -75,6 +76,7 @@ class DashboardPresenterTest {
             assertEquals(0, empty.overview.inProgressInspections)
             assertEquals(0, empty.overview.syncPendingInspections)
             assertEquals(InspectionFilterUi.ALL, empty.selectedFilter)
+            assertEquals(false, empty.isAboutVisible)
             assertNotNull(empty.eventSink)
         }
     }
@@ -192,6 +194,47 @@ class DashboardPresenterTest {
             assertEquals(InspectionTestFixtures.computerLab.id, filtered.heroInspection?.id)
             assertEquals(InspectionFilterUi.SYNC_PENDING, filtered.selectedFilter)
             assertTrue(filtered.filteredInspections.isEmpty())
+        }
+    }
+
+    @Test
+    fun `about action opens about presentation without changing dashboard data`() = runTest {
+        val presenter = presenter()
+
+        presenter.test {
+            awaitItem()
+            val content = awaitItem() as DashboardState.Content
+
+            content.eventSink(DashboardEvent.AboutSelected)
+
+            val aboutVisible = awaitItem() as DashboardState.Content
+            assertEquals(true, aboutVisible.isAboutVisible)
+            assertEquals(content.overview, aboutVisible.overview)
+            assertEquals(content.heroInspection, aboutVisible.heroInspection)
+            assertEquals(content.selectedFilter, aboutVisible.selectedFilter)
+            assertEquals(content.filteredInspections, aboutVisible.filteredInspections)
+        }
+    }
+
+    @Test
+    fun `about dismiss closes about presentation without changing dashboard data`() = runTest {
+        val presenter = presenter()
+
+        presenter.test {
+            awaitItem()
+            val content = awaitItem() as DashboardState.Content
+
+            content.eventSink(DashboardEvent.AboutSelected)
+            val aboutVisible = awaitItem() as DashboardState.Content
+
+            aboutVisible.eventSink(DashboardEvent.AboutDismissed)
+
+            val aboutHidden = awaitItem() as DashboardState.Content
+            assertEquals(false, aboutHidden.isAboutVisible)
+            assertEquals(content.overview, aboutHidden.overview)
+            assertEquals(content.heroInspection, aboutHidden.heroInspection)
+            assertEquals(content.selectedFilter, aboutHidden.selectedFilter)
+            assertEquals(content.filteredInspections, aboutHidden.filteredInspections)
         }
     }
 

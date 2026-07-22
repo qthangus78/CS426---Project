@@ -14,8 +14,9 @@ Implemented:
 - pure Kotlin `:domain` bootstrap with inspection summary models, repository port, and observe use cases;
 - `:data` fake inspection repository with deterministic sample inspection summaries;
 - Slack Circuit application shell, typed screens, Presenter/UI factories, and manual composition root in `:app`;
+- polished Dashboard presentation with a derived continue-inspection hero, overview metrics, status filters, quick actions, and a local About FieldFlow dialog;
 - Dashboard-to-Inspection read-only vertical slice;
-- navigable placeholder boundaries for Assets, Templates, Issues, and Reports;
+- navigable placeholder boundaries for Assets, Templates, Issues, and Reports, with Reports presented as an honest future-milestone screen;
 - focused unit tests for Domain, Data, Dashboard Presenter, Inspection Presenter, and Reports Presenter;
 - Compose instrumentation smoke coverage for startup, Dashboard, Inspection, placeholder navigation, and Back.
 
@@ -24,11 +25,12 @@ Placeholder:
 - Assets;
 - Templates;
 - Issues;
-- Reports;
+- Reports export and report-history workflow;
 - full Inspection checklist workflow.
 
 Not implemented:
 
+- Settings screen, settings navigation, or persisted preferences;
 - Room database, DAOs, entities, migrations, and production local source of truth;
 - offline-first production persistence, draft recovery, and synchronization queue;
 - inspection validation, weighted scoring, evidence capture, and evidence storage;

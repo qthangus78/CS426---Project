@@ -39,10 +39,17 @@ internal class DashboardPresenter(
         }
         val presenterModel by presenterModels.collectAsState(initial = DashboardPresenterModel())
         var selectedFilter by remember { mutableStateOf(InspectionFilterUi.ALL) }
+        var isAboutVisible by remember { mutableStateOf(false) }
 
         val eventSink = remember(navigator) {
             { event: DashboardEvent ->
                 when (event) {
+                    DashboardEvent.AboutDismissed -> {
+                        isAboutVisible = false
+                    }
+                    DashboardEvent.AboutSelected -> {
+                        isAboutVisible = true
+                    }
                     is DashboardEvent.FilterSelected -> {
                         selectedFilter = event.filter
                     }
@@ -63,6 +70,7 @@ internal class DashboardPresenter(
             presenterModel.inspections.isEmpty() -> DashboardState.Empty(
                 overview = presenterModel.overview,
                 selectedFilter = selectedFilter,
+                isAboutVisible = isAboutVisible,
                 eventSink = eventSink,
             )
             else -> DashboardState.Content(
@@ -70,6 +78,7 @@ internal class DashboardPresenter(
                 heroInspection = presenterModel.heroInspection,
                 selectedFilter = selectedFilter,
                 filteredInspections = presenterModel.inspections.filterBy(selectedFilter),
+                isAboutVisible = isAboutVisible,
                 eventSink = eventSink,
             )
         }
