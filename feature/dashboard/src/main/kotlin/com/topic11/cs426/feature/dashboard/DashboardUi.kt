@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,10 +20,12 @@ import com.topic11.cs426.core.designsystem.InspectionSummaryCard
 import com.topic11.cs426.core.designsystem.LoadingContent
 import com.topic11.cs426.core.designsystem.StatusTone
 import com.topic11.cs426.domain.model.InspectionId
-import com.topic11.cs426.feature.dashboard.component.DashboardOverviewCard
+import com.topic11.cs426.feature.dashboard.component.ContinueInspectionCard
+import com.topic11.cs426.feature.dashboard.component.DashboardOverview
 import com.topic11.cs426.feature.dashboard.component.DashboardQuickActions
 import com.topic11.cs426.feature.dashboard.component.DashboardSectionHeader
 import com.topic11.cs426.feature.dashboard.component.DashboardTopArea
+import com.topic11.cs426.feature.dashboard.component.InspectionFilterRow
 
 @Composable
 internal fun DashboardUi(
@@ -30,8 +33,9 @@ internal fun DashboardUi(
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
-        modifier = modifier,
-        topBar = { FieldFlowTopAppBar(title = "FieldFlow") },
+        modifier = modifier.testTag("dashboard-root"),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { FieldFlowTopAppBar(title = "Dashboard") },
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -57,10 +61,23 @@ internal fun DashboardUi(
 
                 is DashboardState.Empty -> {
                     item {
-                        DashboardOverviewCard(overview = state.overview)
+                        DashboardOverview(overview = state.overview)
                     }
                     item {
                         DashboardQuickActions(eventSink = state.eventSink)
+                    }
+                    item {
+                        InspectionFilterRow(
+                            selectedFilter = state.selectedFilter,
+                            eventSink = state.eventSink,
+                        )
+                    }
+                    item {
+                        DashboardSectionHeader(
+                            title = "Inspections",
+                            countLabel = "0 shown",
+                            modifier = Modifier.testTag("dashboard-inspection-list"),
+                        )
                     }
                     item {
                         EmptyState(
@@ -72,29 +89,57 @@ internal fun DashboardUi(
                 }
 
                 is DashboardState.Content -> {
+                    state.heroInspection?.let { heroInspection ->
+                        item {
+                            ContinueInspectionCard(
+                                inspection = heroInspection,
+                                onClick = {
+                                    state.eventSink(
+                                        DashboardEvent.InspectionSelected(heroInspection.id),
+                                    )
+                                },
+                            )
+                        }
+                    }
                     item {
-                        DashboardOverviewCard(overview = state.overview)
+                        DashboardOverview(overview = state.overview)
                     }
                     item {
                         DashboardQuickActions(eventSink = state.eventSink)
                     }
                     item {
+                        InspectionFilterRow(
+                            selectedFilter = state.selectedFilter,
+                            eventSink = state.eventSink,
+                        )
+                    }
+                    item {
                         DashboardSectionHeader(
                             title = "Inspections",
-                            countLabel = "${state.inspections.size} total",
+                            countLabel = "${state.filteredInspections.size} shown",
                             modifier = Modifier.testTag("dashboard-inspection-list"),
                         )
                     }
-                    items(
-                        items = state.inspections,
-                        key = { inspection -> inspection.id.value },
-                    ) { inspection ->
-                        InspectionSummaryRow(
-                            inspection = inspection,
-                            onClick = {
-                                state.eventSink(DashboardEvent.InspectionSelected(inspection.id))
-                            },
-                        )
+                    if (state.filteredInspections.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = "No inspections match this filter",
+                                message = "Choose another status filter to view available inspection summaries.",
+                                modifier = Modifier.testTag("dashboard-filtered-empty"),
+                            )
+                        }
+                    } else {
+                        items(
+                            items = state.filteredInspections,
+                            key = { inspection -> inspection.id.value },
+                        ) { inspection ->
+                            InspectionSummaryRow(
+                                inspection = inspection,
+                                onClick = {
+                                    state.eventSink(DashboardEvent.InspectionSelected(inspection.id))
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -132,7 +177,54 @@ private fun DashboardContentPreview() {
         DashboardUi(
             state = DashboardState.Content(
                 overview = previewOverview,
-                inspections = previewInspections,
+                heroInspection = previewInspections.first(),
+                selectedFilter = InspectionFilterUi.ALL,
+                filteredInspections = previewInspections,
+                eventSink = {},
+            ),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard With Hero",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 760,
+)
+@Composable
+private fun DashboardWithHeroPreview() {
+    FieldFlowTheme {
+        DashboardUi(
+            state = DashboardState.Content(
+                overview = previewOverview,
+                heroInspection = previewInspections.first(),
+                selectedFilter = InspectionFilterUi.ALL,
+                filteredInspections = previewInspections,
+                eventSink = {},
+            ),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard Filtered",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 700,
+)
+@Composable
+private fun DashboardFilteredPreview() {
+    val filteredInspections = previewInspections.filter {
+        it.filter == InspectionFilterUi.SYNC_PENDING
+    }
+    FieldFlowTheme {
+        DashboardUi(
+            state = DashboardState.Content(
+                overview = previewOverview,
+                heroInspection = previewInspections.first(),
+                selectedFilter = InspectionFilterUi.SYNC_PENDING,
+                filteredInspections = filteredInspections,
                 eventSink = {},
             ),
         )
@@ -155,6 +247,7 @@ private fun DashboardEmptyPreview() {
                     inProgressInspections = 0,
                     syncPendingInspections = 0,
                 ),
+                selectedFilter = InspectionFilterUi.ALL,
                 eventSink = {},
             ),
         )
@@ -164,8 +257,8 @@ private fun DashboardEmptyPreview() {
 @Preview(
     name = "Dashboard Long Title",
     showBackground = true,
-    widthDp = 320,
-    heightDp = 700,
+    widthDp = 411,
+    heightDp = 760,
 )
 @Composable
 private fun DashboardLongTitlePreview() {
@@ -177,7 +270,30 @@ private fun DashboardLongTitlePreview() {
                     inProgressInspections = 1,
                     syncPendingInspections = 0,
                 ),
-                inspections = listOf(previewLongInspection),
+                heroInspection = previewLongInspection,
+                selectedFilter = InspectionFilterUi.ALL,
+                filteredInspections = listOf(previewLongInspection),
+                eventSink = {},
+            ),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard Narrow",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 760,
+)
+@Composable
+private fun DashboardNarrowPreview() {
+    FieldFlowTheme {
+        DashboardUi(
+            state = DashboardState.Content(
+                overview = previewOverview,
+                heroInspection = previewInspections.first(),
+                selectedFilter = InspectionFilterUi.ALL,
+                filteredInspections = previewInspections,
                 eventSink = {},
             ),
         )
@@ -199,6 +315,7 @@ private val previewInspections = listOf(
         completedItems = 6,
         totalItems = 10,
         progressFraction = 0.6f,
+        filter = InspectionFilterUi.IN_PROGRESS,
     ),
     InspectionSummaryUi(
         id = InspectionId("projector-p-204"),
@@ -208,6 +325,7 @@ private val previewInspections = listOf(
         completedItems = 0,
         totalItems = 8,
         progressFraction = 0f,
+        filter = InspectionFilterUi.NOT_STARTED,
     ),
     InspectionSummaryUi(
         id = InspectionId("laboratory-a2-safety-check"),
@@ -217,6 +335,7 @@ private val previewInspections = listOf(
         completedItems = 12,
         totalItems = 12,
         progressFraction = 1f,
+        filter = InspectionFilterUi.SYNC_PENDING,
     ),
 )
 
@@ -228,4 +347,5 @@ private val previewLongInspection = InspectionSummaryUi(
     completedItems = 3,
     totalItems = 14,
     progressFraction = 0.21f,
+    filter = InspectionFilterUi.IN_PROGRESS,
 )

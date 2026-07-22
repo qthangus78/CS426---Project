@@ -1,5 +1,6 @@
 package com.topic11.cs426.core.designsystem
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,14 +8,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -26,20 +28,23 @@ fun InspectionSummaryCard(
     completedItems: Int,
     totalItems: Int,
     progressFraction: Float,
-    actionLabel: String = "Open",
+    actionLabel: String? = "Open",
+    containerColor: Color? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
+    val cardContainerColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerLow
+    Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 132.dp),
+            .heightIn(min = 128.dp),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+        colors = CardDefaults.cardColors(
+            containerColor = cardContainerColor,
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
@@ -73,12 +78,14 @@ fun InspectionSummaryCard(
                     tone = statusTone,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
+                if (actionLabel != null) {
+                    Text(
+                        text = actionLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
