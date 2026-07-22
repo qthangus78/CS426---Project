@@ -3,15 +3,17 @@ package com.topic11.cs426.feature.dashboard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.Presenter
+import com.topic11.cs426.core.designsystem.StatusTone
 import com.topic11.cs426.core.navigation.AssetsScreen
 import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.core.navigation.IssuesScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
-import com.topic11.cs426.core.designsystem.StatusTone
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
@@ -26,17 +28,24 @@ internal class DashboardPresenter(
         val presenterModels = remember(observeInspectionSummaries) {
             observeInspectionSummaries()
                 .map { summaries ->
+                    val inspections = summaries.map { inspection -> inspection.toUiModel() }
                     DashboardPresenterModel(
                         isLoaded = true,
-                        inspections = summaries.map { inspection -> inspection.toUiModel() },
+                        overview = summaries.toOverviewUi(),
+                        inspections = inspections,
+                        heroInspection = inspections.selectHeroInspection(),
                     )
                 }
         }
         val presenterModel by presenterModels.collectAsState(initial = DashboardPresenterModel())
+        var selectedFilter by remember { mutableStateOf(InspectionFilterUi.ALL) }
 
         val eventSink = remember(navigator) {
             { event: DashboardEvent ->
                 when (event) {
+                    is DashboardEvent.FilterSelected -> {
+                        selectedFilter = event.filter
+                    }
                     is DashboardEvent.InspectionSelected -> {
                         navigator.goTo(InspectionScreen(event.inspectionId.value))
                     }
@@ -51,9 +60,16 @@ internal class DashboardPresenter(
 
         return when {
             !presenterModel.isLoaded -> DashboardState.Loading
-            presenterModel.inspections.isEmpty() -> DashboardState.Empty(eventSink = eventSink)
+            presenterModel.inspections.isEmpty() -> DashboardState.Empty(
+                overview = presenterModel.overview,
+                selectedFilter = selectedFilter,
+                eventSink = eventSink,
+            )
             else -> DashboardState.Content(
-                inspections = presenterModel.inspections,
+                overview = presenterModel.overview,
+                heroInspection = presenterModel.heroInspection,
+                selectedFilter = selectedFilter,
+                filteredInspections = presenterModel.inspections.filterBy(selectedFilter),
                 eventSink = eventSink,
             )
         }
@@ -62,8 +78,43 @@ internal class DashboardPresenter(
 
 private data class DashboardPresenterModel(
     val isLoaded: Boolean = false,
+    val overview: DashboardOverviewUi = DashboardOverviewUi(
+        totalInspections = 0,
+        inProgressInspections = 0,
+        syncPendingInspections = 0,
+    ),
+    val heroInspection: InspectionSummaryUi? = null,
     val inspections: List<InspectionSummaryUi> = emptyList(),
 )
+
+private fun List<InspectionSummaryUi>.selectHeroInspection(): InspectionSummaryUi? {
+    return firstOrNull { inspection ->
+        inspection.filter == InspectionFilterUi.IN_PROGRESS
+    } ?: firstOrNull { inspection ->
+        inspection.filter == InspectionFilterUi.SYNC_PENDING
+    }
+}
+
+private fun List<InspectionSummaryUi>.filterBy(filter: InspectionFilterUi): List<InspectionSummaryUi> {
+    return when (filter) {
+        InspectionFilterUi.ALL -> this
+        InspectionFilterUi.IN_PROGRESS,
+        InspectionFilterUi.NOT_STARTED,
+        InspectionFilterUi.SYNC_PENDING -> filter { inspection -> inspection.filter == filter }
+    }
+}
+
+private fun List<InspectionSummary>.toOverviewUi(): DashboardOverviewUi {
+    return DashboardOverviewUi(
+        totalInspections = size,
+        inProgressInspections = count { inspection ->
+            inspection.status == InspectionStatus.IN_PROGRESS
+        },
+        syncPendingInspections = count { inspection ->
+            inspection.status == InspectionStatus.SYNC_PENDING
+        },
+    )
+}
 
 private fun InspectionSummary.toUiModel(): InspectionSummaryUi {
     return InspectionSummaryUi(
@@ -74,6 +125,7 @@ private fun InspectionSummary.toUiModel(): InspectionSummaryUi {
         completedItems = completedItems,
         totalItems = totalItems,
         progressFraction = progressFraction.coerceIn(0f, 1f),
+        filter = status.filter(),
     )
 }
 
@@ -92,5 +144,14 @@ private fun InspectionStatus.statusTone(): StatusTone {
         InspectionStatus.IN_PROGRESS -> StatusTone.InProgress
         InspectionStatus.COMPLETED -> StatusTone.Success
         InspectionStatus.SYNC_PENDING -> StatusTone.Warning
+    }
+}
+
+private fun InspectionStatus.filter(): InspectionFilterUi? {
+    return when (this) {
+        InspectionStatus.NOT_STARTED -> InspectionFilterUi.NOT_STARTED
+        InspectionStatus.IN_PROGRESS -> InspectionFilterUi.IN_PROGRESS
+        InspectionStatus.SYNC_PENDING -> InspectionFilterUi.SYNC_PENDING
+        InspectionStatus.COMPLETED -> null
     }
 }
