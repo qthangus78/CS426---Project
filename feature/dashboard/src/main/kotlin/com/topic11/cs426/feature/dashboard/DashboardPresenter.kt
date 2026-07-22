@@ -28,6 +28,7 @@ internal class DashboardPresenter(
                 .map { summaries ->
                     DashboardPresenterModel(
                         isLoaded = true,
+                        overview = summaries.toOverviewUi(),
                         inspections = summaries.map { inspection -> inspection.toUiModel() },
                     )
                 }
@@ -51,8 +52,12 @@ internal class DashboardPresenter(
 
         return when {
             !presenterModel.isLoaded -> DashboardState.Loading
-            presenterModel.inspections.isEmpty() -> DashboardState.Empty(eventSink = eventSink)
+            presenterModel.inspections.isEmpty() -> DashboardState.Empty(
+                overview = presenterModel.overview,
+                eventSink = eventSink,
+            )
             else -> DashboardState.Content(
+                overview = presenterModel.overview,
                 inspections = presenterModel.inspections,
                 eventSink = eventSink,
             )
@@ -62,8 +67,25 @@ internal class DashboardPresenter(
 
 private data class DashboardPresenterModel(
     val isLoaded: Boolean = false,
+    val overview: DashboardOverviewUi = DashboardOverviewUi(
+        totalInspections = 0,
+        inProgressInspections = 0,
+        syncPendingInspections = 0,
+    ),
     val inspections: List<InspectionSummaryUi> = emptyList(),
 )
+
+private fun List<InspectionSummary>.toOverviewUi(): DashboardOverviewUi {
+    return DashboardOverviewUi(
+        totalInspections = size,
+        inProgressInspections = count { inspection ->
+            inspection.status == InspectionStatus.IN_PROGRESS
+        },
+        syncPendingInspections = count { inspection ->
+            inspection.status == InspectionStatus.SYNC_PENDING
+        },
+    )
+}
 
 private fun InspectionSummary.toUiModel(): InspectionSummaryUi {
     return InspectionSummaryUi(

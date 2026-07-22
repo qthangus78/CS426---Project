@@ -13,8 +13,10 @@ Use a configured Android emulator or device. The current reference target is the
 
 - [ ] Confirm `Architecture Bootstrap` appears.
 - [ ] Confirm `Inspection overview` appears.
+- [ ] Confirm the overview values match the visible inspection data: 3 total, 1 in progress, and 1 sync pending with the current sample repository.
 - [ ] Confirm at least one inspection card appears.
 - [ ] Confirm each card shows a status label and item progress.
+- [ ] Confirm long inspection titles remain readable and do not cover the status or progress.
 - [ ] Confirm Quick access shows Assets, Templates, Issues, and Reports.
 
 ## Inspection Navigation
@@ -23,6 +25,7 @@ Use a configured Android emulator or device. The current reference target is the
 - [ ] Confirm the Inspection screen appears.
 - [ ] Confirm the selected inspection title appears.
 - [ ] Confirm Back returns to Dashboard.
+- [ ] Open each visible inspection card and confirm it opens the matching Inspection screen.
 
 ## Placeholder Navigation
 
@@ -36,5 +39,8 @@ Use a configured Android emulator or device. The current reference target is the
 
 - [ ] Repeat Dashboard-to-Inspection navigation twice.
 - [ ] Repeat Quick access navigation across all placeholders.
-- [ ] Rotate the device or trigger normal activity recreation where practical.
+- [ ] Rotate to landscape and confirm the Dashboard does not crash.
+- [ ] Return to portrait and confirm the Dashboard remains readable.
+- [ ] Confirm the empty Dashboard state is covered by the Dashboard presenter test and Compose preview.
+- [ ] Trigger normal activity recreation where practical.
 - [ ] Confirm the app remains responsive and no crash dialog appears.

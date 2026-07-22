@@ -12,15 +12,24 @@ sealed interface DashboardState : CircuitUiState {
 
     @Immutable
     data class Content(
+        val overview: DashboardOverviewUi,
         val inspections: List<InspectionSummaryUi>,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 
     @Immutable
     data class Empty(
+        val overview: DashboardOverviewUi,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 }
+
+@Immutable
+data class DashboardOverviewUi(
+    val totalInspections: Int,
+    val inProgressInspections: Int,
+    val syncPendingInspections: Int,
+)
 
 @Immutable
 data class InspectionSummaryUi(
