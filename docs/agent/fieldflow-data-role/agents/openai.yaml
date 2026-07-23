@@ -1,0 +1,4 @@
+interface:
+  display_name: "FieldFlow Data Role"
+  short_description: "Implement and verify FieldFlow data-layer tasks"
+  default_prompt: "Use $fieldflow-data-role to plan and implement the next approved FieldFlow Data task."

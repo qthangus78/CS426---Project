@@ -13,3 +13,8 @@ Future responsibilities:
 - local source of truth;
 - draft recovery;
 - pending synchronization records.
+
+The proposed P0 persistence contract is documented in
+[`docs/architecture/DATA_SCHEMA.md`](../../docs/architecture/DATA_SCHEMA.md).
+Room entities and DAOs are intentionally deferred to the Room implementation
+milestone so the schema can be reviewed before it becomes a database API.

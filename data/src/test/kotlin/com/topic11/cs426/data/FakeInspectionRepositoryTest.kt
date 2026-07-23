@@ -2,6 +2,7 @@ package com.topic11.cs426.data
 
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionStatus
+import com.topic11.cs426.domain.model.InspectionSummary
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -11,21 +12,14 @@ import org.junit.Test
 class FakeInspectionRepositoryTest {
     @Test
     fun `observeInspectionSummaries emits deterministic sample data`() = runTest {
-        val repository = FakeInspectionRepository()
+        val firstRepository = FakeInspectionRepository()
+        val secondRepository = FakeInspectionRepository()
 
-        val summaries = repository.observeInspectionSummaries().first()
+        val firstEmission = firstRepository.observeInspectionSummaries().first()
+        val secondEmission = secondRepository.observeInspectionSummaries().first()
 
-        assertEquals(3, summaries.size)
-        assertEquals("Computer Lab I.44", summaries[0].title)
-        assertEquals(InspectionStatus.IN_PROGRESS, summaries[0].status)
-        assertEquals(6, summaries[0].completedItems)
-        assertEquals(10, summaries[0].totalItems)
-        assertEquals("Projector P-204", summaries[1].title)
-        assertEquals(InspectionStatus.NOT_STARTED, summaries[1].status)
-        assertEquals("Laboratory A2 Safety Check", summaries[2].title)
-        assertEquals(InspectionStatus.SYNC_PENDING, summaries[2].status)
-        assertEquals(12, summaries[2].completedItems)
-        assertEquals(12, summaries[2].totalItems)
+        assertEquals(expectedInspections, firstEmission)
+        assertEquals(expectedInspections, secondEmission)
     }
 
     @Test
@@ -36,8 +30,7 @@ class FakeInspectionRepositoryTest {
             .observeInspection(InspectionId("projector-p-204"))
             .first()
 
-        assertEquals("Projector P-204", inspection?.title)
-        assertEquals(InspectionStatus.NOT_STARTED, inspection?.status)
+        assertEquals(expectedInspections[1], inspection)
     }
 
     @Test
@@ -49,5 +42,31 @@ class FakeInspectionRepositoryTest {
             .first()
 
         assertNull(inspection)
+    }
+
+    private companion object {
+        val expectedInspections = listOf(
+            InspectionSummary(
+                id = InspectionId("computer-lab-i-44"),
+                title = "Computer Lab I.44",
+                status = InspectionStatus.IN_PROGRESS,
+                completedItems = 6,
+                totalItems = 10,
+            ),
+            InspectionSummary(
+                id = InspectionId("projector-p-204"),
+                title = "Projector P-204",
+                status = InspectionStatus.NOT_STARTED,
+                completedItems = 0,
+                totalItems = 8,
+            ),
+            InspectionSummary(
+                id = InspectionId("laboratory-a2-safety-check"),
+                title = "Laboratory A2 Safety Check",
+                status = InspectionStatus.SYNC_PENDING,
+                completedItems = 12,
+                totalItems = 12,
+            ),
+        )
     }
 }
