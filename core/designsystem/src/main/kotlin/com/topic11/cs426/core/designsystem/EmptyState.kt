@@ -21,17 +21,17 @@ fun EmptyState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .semantics { contentDescription = title }
+            .semantics { contentDescription = "$title. $message" }
             .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
         )
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

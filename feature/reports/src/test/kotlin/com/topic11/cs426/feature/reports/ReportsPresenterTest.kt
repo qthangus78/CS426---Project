@@ -1,5 +1,6 @@
 package com.topic11.cs426.feature.reports
 
+import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.test
 import com.topic11.cs426.core.navigation.DashboardScreen
@@ -18,19 +19,48 @@ class ReportsPresenterTest {
         presenter.test {
             val state = awaitItem()
 
-            assertEquals("Reports", state.title)
-            assertEquals("Not implemented yet.", state.message)
-            assertTrue(state.details.contains("future Domain ports"))
+            assertEquals("Reports", state.topBarTitle)
+            assertEquals("Inspection reports", state.title)
+            assertEquals("Report generation is a future milestone.", state.message)
+            assertTrue(state.details.contains("Domain report ports"))
+            assertTrue(state.details.contains("Data adapters"))
             assertEquals(
                 listOf(
-                    "inspection report presentation",
-                    "completed-inspection eligibility",
-                    "PDF and JSON exporters behind Domain ports",
-                    "export and sharing status",
+                    ReportCapabilityUi(
+                        title = "Completed inspection summaries",
+                        description = "Present report-ready inspection results after the workflow is implemented.",
+                    ),
+                    ReportCapabilityUi(
+                        title = "Report eligibility",
+                        description = "Show which completed inspections can be exported after validation exists.",
+                    ),
+                    ReportCapabilityUi(
+                        title = "PDF export through a Domain port",
+                        description = "Keep document generation behind a replaceable boundary.",
+                    ),
+                    ReportCapabilityUi(
+                        title = "JSON export through a Domain port",
+                        description = "Support structured export without coupling UI to file details.",
+                    ),
+                    ReportCapabilityUi(
+                        title = "Export and sharing status",
+                        description = "Display future export progress honestly when a real implementation exists.",
+                    ),
                 ),
-                state.futureResponsibilities,
+                state.futureCapabilities,
             )
         }
+    }
+
+    @Test
+    fun `presenter depends only on navigator`() {
+        val constructorTypes = ReportsPresenter::class.java
+            .declaredConstructors
+            .single()
+            .parameterTypes
+            .toList()
+
+        assertEquals(listOf(Navigator::class.java), constructorTypes)
     }
 
     @Test

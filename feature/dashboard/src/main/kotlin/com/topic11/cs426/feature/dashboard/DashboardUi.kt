@@ -1,5 +1,6 @@
 package com.topic11.cs426.feature.dashboard
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import com.topic11.cs426.core.designsystem.InspectionSummaryCard
 import com.topic11.cs426.core.designsystem.LoadingContent
 import com.topic11.cs426.core.designsystem.StatusTone
 import com.topic11.cs426.domain.model.InspectionId
+import com.topic11.cs426.feature.dashboard.component.DashboardAboutDialog
 import com.topic11.cs426.feature.dashboard.component.ContinueInspectionCard
 import com.topic11.cs426.feature.dashboard.component.DashboardOverview
 import com.topic11.cs426.feature.dashboard.component.DashboardQuickActions
@@ -32,6 +34,17 @@ internal fun DashboardUi(
     state: DashboardState,
     modifier: Modifier = Modifier,
 ) {
+    val aboutEventSink = when (state) {
+        DashboardState.Loading -> null
+        is DashboardState.Empty -> state.eventSink
+        is DashboardState.Content -> state.eventSink
+    }
+    val isAboutVisible = when (state) {
+        DashboardState.Loading -> false
+        is DashboardState.Empty -> state.isAboutVisible
+        is DashboardState.Content -> state.isAboutVisible
+    }
+
     Scaffold(
         modifier = modifier.testTag("dashboard-root"),
         containerColor = MaterialTheme.colorScheme.background,
@@ -42,11 +55,15 @@ internal fun DashboardUi(
                 .padding(innerPadding)
                 .fillMaxSize()
                 .testTag("dashboard-content"),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                DashboardTopArea()
+                DashboardTopArea(
+                    onAboutClick = aboutEventSink?.let { eventSink ->
+                        { eventSink(DashboardEvent.AboutSelected) }
+                    },
+                )
             }
 
             when (state) {
@@ -145,6 +162,14 @@ internal fun DashboardUi(
             }
         }
     }
+
+    if (aboutEventSink != null && isAboutVisible) {
+        DashboardAboutDialog(
+            onDismiss = {
+                aboutEventSink(DashboardEvent.AboutDismissed)
+            },
+        )
+    }
 }
 
 @Composable
@@ -180,9 +205,23 @@ private fun DashboardContentPreview() {
                 heroInspection = previewInspections.first(),
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
+                isAboutVisible = false,
                 eventSink = {},
             ),
         )
+    }
+}
+
+@Preview(
+    name = "Dashboard Loading",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 700,
+)
+@Composable
+private fun DashboardLoadingPreview() {
+    FieldFlowTheme {
+        DashboardUi(state = DashboardState.Loading)
     }
 }
 
@@ -201,6 +240,7 @@ private fun DashboardWithHeroPreview() {
                 heroInspection = previewInspections.first(),
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
+                isAboutVisible = false,
                 eventSink = {},
             ),
         )
@@ -225,6 +265,29 @@ private fun DashboardFilteredPreview() {
                 heroInspection = previewInspections.first(),
                 selectedFilter = InspectionFilterUi.SYNC_PENDING,
                 filteredInspections = filteredInspections,
+                isAboutVisible = false,
+                eventSink = {},
+            ),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard Filtered Empty",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 700,
+)
+@Composable
+private fun DashboardFilteredEmptyPreview() {
+    FieldFlowTheme {
+        DashboardUi(
+            state = DashboardState.Content(
+                overview = previewFilteredEmptyOverview,
+                heroInspection = previewInspections.first(),
+                selectedFilter = InspectionFilterUi.SYNC_PENDING,
+                filteredInspections = emptyList(),
+                isAboutVisible = false,
                 eventSink = {},
             ),
         )
@@ -241,15 +304,38 @@ private fun DashboardFilteredPreview() {
 private fun DashboardEmptyPreview() {
     FieldFlowTheme {
         DashboardUi(
-            state = DashboardState.Empty(
-                overview = DashboardOverviewUi(
-                    totalInspections = 0,
-                    inProgressInspections = 0,
-                    syncPendingInspections = 0,
-                ),
-                selectedFilter = InspectionFilterUi.ALL,
-                eventSink = {},
-            ),
+            state = previewEmptyState(isAboutVisible = false),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard About Dialog",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 760,
+)
+@Composable
+private fun DashboardAboutDialogPreview() {
+    FieldFlowTheme {
+        DashboardUi(
+            state = previewContentState(isAboutVisible = true),
+        )
+    }
+}
+
+@Preview(
+    name = "Dashboard Dark",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 760,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun DashboardDarkPreview() {
+    FieldFlowTheme(darkTheme = true) {
+        DashboardUi(
+            state = previewContentState(isAboutVisible = false),
         )
     }
 }
@@ -273,6 +359,7 @@ private fun DashboardLongTitlePreview() {
                 heroInspection = previewLongInspection,
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = listOf(previewLongInspection),
+                isAboutVisible = false,
                 eventSink = {},
             ),
         )
@@ -294,6 +381,7 @@ private fun DashboardNarrowPreview() {
                 heroInspection = previewInspections.first(),
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
+                isAboutVisible = false,
                 eventSink = {},
             ),
         )
@@ -305,6 +393,40 @@ private val previewOverview = DashboardOverviewUi(
     inProgressInspections = 1,
     syncPendingInspections = 1,
 )
+
+private val previewFilteredEmptyOverview = DashboardOverviewUi(
+    totalInspections = 1,
+    inProgressInspections = 1,
+    syncPendingInspections = 0,
+)
+
+private fun previewContentState(
+    isAboutVisible: Boolean,
+): DashboardState.Content {
+    return DashboardState.Content(
+        overview = previewOverview,
+        heroInspection = previewInspections.first(),
+        selectedFilter = InspectionFilterUi.ALL,
+        filteredInspections = previewInspections,
+        isAboutVisible = isAboutVisible,
+        eventSink = {},
+    )
+}
+
+private fun previewEmptyState(
+    isAboutVisible: Boolean,
+): DashboardState.Empty {
+    return DashboardState.Empty(
+        overview = DashboardOverviewUi(
+            totalInspections = 0,
+            inProgressInspections = 0,
+            syncPendingInspections = 0,
+        ),
+        selectedFilter = InspectionFilterUi.ALL,
+        isAboutVisible = isAboutVisible,
+        eventSink = {},
+    )
+}
 
 private val previewInspections = listOf(
     InspectionSummaryUi(
