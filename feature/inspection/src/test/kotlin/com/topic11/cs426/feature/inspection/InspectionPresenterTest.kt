@@ -15,7 +15,7 @@ class InspectionPresenterTest {
     private val screen = InspectionScreen("computer-lab-i-44")
 
     private fun presenter(navigator: FakeNavigator = FakeNavigator(DashboardScreen, screen)) =
-        InspectionPresenter(screen = screen, navigator = navigator)
+        InspectionPresenter(screen = screen, navigator = navigator, initialSections = FakeSession.sections)
 
     // ── Initial state ─────────────────────────────────────────────────────────
 
@@ -229,6 +229,56 @@ class InspectionPresenterTest {
             editing.eventSink(InspectionEvent.BackSelected)
 
             assertEquals(screen, navigator.awaitPop().poppedScreen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // ── NoteChanged ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `NoteChanged updates the item note`() = runTest {
+        presenter().test {
+            val editing = awaitItem() as InspectionState.Editing
+            val firstItem = editing.sections.first().items.first()
+
+            editing.eventSink(InspectionEvent.NoteChanged(firstItem.id, "test note"))
+
+            val updated = awaitItem() as InspectionState.Editing
+            val updatedItem = updated.sections.first().items.first()
+            assertEquals("test note", updatedItem.note)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // ── EvidenceAdded ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `EvidenceAdded increments the evidence count for the item`() = runTest {
+        presenter().test {
+            val editing = awaitItem() as InspectionState.Editing
+            val firstItem = editing.sections.first().items.first()
+            assertEquals(0, firstItem.evidenceCount)
+
+            editing.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-stub"))
+
+            val updated = awaitItem() as InspectionState.Editing
+            assertEquals(1, updated.sections.first().items.first().evidenceCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `EvidenceAdded accumulates count on repeated calls`() = runTest {
+        presenter().test {
+            var state = awaitItem() as InspectionState.Editing
+            val firstItem = state.sections.first().items.first()
+
+            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-1"))
+            state = awaitItem() as InspectionState.Editing
+            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-2"))
+            state = awaitItem() as InspectionState.Editing
+
+            assertEquals(2, state.sections.first().items.first().evidenceCount)
             cancelAndIgnoreRemainingEvents()
         }
     }

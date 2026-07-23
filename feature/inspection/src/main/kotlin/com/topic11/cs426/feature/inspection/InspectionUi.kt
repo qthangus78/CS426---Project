@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -16,7 +18,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -71,25 +79,29 @@ private fun InspectionEditingScreen(
             )
         },
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(PaddingValues(horizontal = 20.dp, vertical = 16.dp))
                 .fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ProgressRow(progress = state.progress)
+            item { ProgressRow(progress = state.progress) }
 
-            Text(
-                text = "Section ${state.currentSectionIndex + 1} of ${state.sections.size}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            item {
+                Text(
+                    text = "Section ${state.currentSectionIndex + 1} of ${state.sections.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (section != null) {
-                Text(text = section.title, style = MaterialTheme.typography.titleMedium)
+                item {
+                    Text(text = section.title, style = MaterialTheme.typography.titleMedium)
+                }
 
-                section.items.forEach { item ->
+                items(section.items, key = { it.id }) { item ->
                     ChecklistItemRow(
                         item = item,
                         onAnswerChange = { answer ->
@@ -105,30 +117,34 @@ private fun InspectionEditingScreen(
                 }
             }
 
-            HorizontalDivider()
+            item { HorizontalDivider() }
 
-            SectionNavRow(
-                hasPrevious = state.hasPreviousSection,
-                hasNext = state.hasNextSection,
-                onPrevious = { state.eventSink(InspectionEvent.PreviousSection) },
-                onNext = { state.eventSink(InspectionEvent.NextSection) },
-            )
+            item {
+                SectionNavRow(
+                    hasPrevious = state.hasPreviousSection,
+                    hasNext = state.hasNextSection,
+                    onPrevious = { state.eventSink(InspectionEvent.PreviousSection) },
+                    onNext = { state.eventSink(InspectionEvent.NextSection) },
+                )
+            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = { state.eventSink(InspectionEvent.SaveDraftSelected) },
-                    modifier = Modifier.weight(1f),
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Save Draft")
-                }
-                Button(
-                    onClick = { state.eventSink(InspectionEvent.ReviewSelected) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Review")
+                    OutlinedButton(
+                        onClick = { state.eventSink(InspectionEvent.SaveDraftSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Save Draft")
+                    }
+                    Button(
+                        onClick = { state.eventSink(InspectionEvent.ReviewSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Review")
+                    }
                 }
             }
         }
@@ -151,44 +167,50 @@ private fun InspectionReviewingScreen(
             )
         },
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(PaddingValues(horizontal = 20.dp, vertical = 16.dp))
                 .fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ProgressRow(progress = state.progress)
+            item { ProgressRow(progress = state.progress) }
 
-            Text(
-                text = "Review your answers before completing.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            state.sections.forEach { section ->
-                Text(text = section.title, style = MaterialTheme.typography.titleSmall)
-                section.items.forEach { item ->
-                    ReadOnlyItemRow(item = item)
-                }
-                HorizontalDivider()
+            item {
+                Text(
+                    text = "Review your answers before completing.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = { state.eventSink(InspectionEvent.BackSelected) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Edit")
+            state.sections.forEach { section ->
+                item {
+                    Text(text = section.title, style = MaterialTheme.typography.titleSmall)
                 }
-                Button(
-                    onClick = { state.eventSink(InspectionEvent.CompleteSelected) },
-                    modifier = Modifier.weight(1f),
+                items(section.items, key = { it.id }) { item ->
+                    ReadOnlyItemRow(item = item)
+                }
+                item { HorizontalDivider() }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Complete")
+                    OutlinedButton(
+                        onClick = { state.eventSink(InspectionEvent.BackSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Edit")
+                    }
+                    Button(
+                        onClick = { state.eventSink(InspectionEvent.CompleteSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Complete")
+                    }
                 }
             }
         }
@@ -257,7 +279,10 @@ private fun InspectionCompletedScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            FieldFlowTopAppBar(title = state.title)
+            FieldFlowTopAppBar(
+                title = state.title,
+                onBackClick = { state.eventSink(InspectionEvent.BackSelected) },
+            )
         },
     ) { innerPadding ->
         Column(
@@ -306,6 +331,7 @@ private fun ProgressRow(progress: InspectionProgress) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChecklistItemRow(
     item: ChecklistItemUi,
@@ -313,6 +339,8 @@ private fun ChecklistItemRow(
     onNoteChange: (String) -> Unit,
     onEvidenceAdd: (String) -> Unit,
 ) {
+    var showEvidencePicker by remember { mutableStateOf(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val requiredMarker = if (item.required) " *" else ""
         Text(
@@ -358,11 +386,57 @@ private fun ChecklistItemRow(
             label = { Text("Note (optional)") },
             modifier = Modifier.fillMaxWidth(),
         )
-        // Evidence button — shows count when evidence has been attached
-        TextButton(onClick = { onEvidenceAdd("photo-stub") }) {
+        // Evidence button — opens picker sheet; shows count when evidence is attached
+        TextButton(onClick = { showEvidencePicker = true }) {
             Text(
                 if (item.evidenceCount > 0) "Evidence (${item.evidenceCount})" else "Add Evidence",
             )
+        }
+    }
+
+    // Evidence picker — Phase 1 stub: both options fire a placeholder ref so the
+    // evidenceCount increments and the UI reflects the attachment. Phase 2 replaces
+    // the stubs with a real camera / gallery intent.
+    if (showEvidencePicker) {
+        ModalBottomSheet(onDismissRequest = { showEvidencePicker = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "Add Evidence",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                TextButton(
+                    onClick = {
+                        onEvidenceAdd("photo-stub")
+                        showEvidencePicker = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("📷  Take Photo (demo)")
+                }
+                TextButton(
+                    onClick = {
+                        onEvidenceAdd("gallery-stub")
+                        showEvidencePicker = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("🖼  Choose from Gallery (demo)")
+                }
+                TextButton(
+                    onClick = { showEvidencePicker = false },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }

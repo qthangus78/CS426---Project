@@ -27,11 +27,16 @@ import com.topic11.cs426.core.navigation.InspectionScreen
 internal class InspectionPresenter(
     private val screen: InspectionScreen,
     private val navigator: Navigator,
+    private val initialSections: List<InspectionSectionUi>,
 ) : Presenter<InspectionState> {
 
     @Composable
     override fun present(): InspectionState {
-        val sections = remember { FakeSession.sections }
+        // Phase 1: Loading state is intentionally not emitted. present() goes directly
+        // to Editing because initialSections provides synchronous data. In Phase 2,
+        // emit InspectionState.Loading first, then subscribe to the domain Flow and
+        // transition to Editing once the first session value arrives.
+        val sections = remember { initialSections }
 
         var sectionIndex by remember { mutableStateOf(0) }
         var phase by remember { mutableStateOf(WorkflowPhase.Editing) }
