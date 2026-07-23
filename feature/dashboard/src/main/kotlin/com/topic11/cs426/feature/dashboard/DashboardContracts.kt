@@ -16,6 +16,7 @@ sealed interface DashboardState : CircuitUiState {
         val heroInspection: InspectionSummaryUi?,
         val selectedFilter: InspectionFilterUi,
         val filteredInspections: List<InspectionSummaryUi>,
+        val isAboutVisible: Boolean,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 
@@ -23,6 +24,7 @@ sealed interface DashboardState : CircuitUiState {
     data class Empty(
         val overview: DashboardOverviewUi,
         val selectedFilter: InspectionFilterUi,
+        val isAboutVisible: Boolean,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 }
@@ -59,6 +61,10 @@ sealed interface DashboardEvent : CircuitUiEvent {
     data class InspectionSelected(val inspectionId: InspectionId) : DashboardEvent
 
     data class FilterSelected(val filter: InspectionFilterUi) : DashboardEvent
+
+    data object AboutSelected : DashboardEvent
+
+    data object AboutDismissed : DashboardEvent
 
     data object AssetsSelected : DashboardEvent
 
