@@ -36,7 +36,7 @@ class FakeInspectionRepositoryTest {
             .observeInspection(InspectionId("projector-p-204"))
             .first()
 
-        assertEquals("Projector P-204", inspection?.title)
+        assertEquals("Projector P-204", inspection?.assetName)
         assertEquals(InspectionStatus.NOT_STARTED, inspection?.status)
     }
 

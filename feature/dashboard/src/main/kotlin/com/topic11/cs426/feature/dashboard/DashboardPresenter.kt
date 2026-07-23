@@ -142,6 +142,7 @@ private fun InspectionStatus.displayLabel(): String {
     return when (this) {
         InspectionStatus.NOT_STARTED -> "Not started"
         InspectionStatus.IN_PROGRESS -> "In progress"
+        InspectionStatus.REVIEWING -> "Reviewing"
         InspectionStatus.COMPLETED -> "Completed"
         InspectionStatus.SYNC_PENDING -> "Sync pending"
     }
@@ -151,6 +152,7 @@ private fun InspectionStatus.statusTone(): StatusTone {
     return when (this) {
         InspectionStatus.NOT_STARTED -> StatusTone.Neutral
         InspectionStatus.IN_PROGRESS -> StatusTone.InProgress
+        InspectionStatus.REVIEWING -> StatusTone.InProgress
         InspectionStatus.COMPLETED -> StatusTone.Success
         InspectionStatus.SYNC_PENDING -> StatusTone.Warning
     }
@@ -160,6 +162,7 @@ private fun InspectionStatus.filter(): InspectionFilterUi? {
     return when (this) {
         InspectionStatus.NOT_STARTED -> InspectionFilterUi.NOT_STARTED
         InspectionStatus.IN_PROGRESS -> InspectionFilterUi.IN_PROGRESS
+        InspectionStatus.REVIEWING -> InspectionFilterUi.IN_PROGRESS
         InspectionStatus.SYNC_PENDING -> InspectionFilterUi.SYNC_PENDING
         InspectionStatus.COMPLETED -> null
     }

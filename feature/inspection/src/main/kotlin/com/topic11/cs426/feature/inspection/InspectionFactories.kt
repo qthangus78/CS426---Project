@@ -7,9 +7,13 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.runtime.ui.Ui
 import com.slack.circuit.runtime.ui.ui
 import com.topic11.cs426.core.navigation.InspectionScreen
+import com.topic11.cs426.domain.repository.TemplateRepository
+import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
 
-// TODO Phase 2: add ObserveInspectionSessionUseCase to constructor once domain ships.
-class InspectionPresenterFactory : Presenter.Factory {
+class InspectionPresenterFactory(
+    private val observeInspection: ObserveInspectionUseCase,
+    private val templateRepository: TemplateRepository,
+) : Presenter.Factory {
     override fun create(
         screen: Screen,
         navigator: Navigator,
@@ -19,7 +23,8 @@ class InspectionPresenterFactory : Presenter.Factory {
             is InspectionScreen -> InspectionPresenter(
                 screen = screen,
                 navigator = navigator,
-                initialSections = inspectionDemoSections,
+                observeInspection = observeInspection,
+                templateRepository = templateRepository,
             )
             else -> null
         }
@@ -42,86 +47,3 @@ class InspectionUiFactory : Ui.Factory {
         }
     }
 }
-
-/**
- * Phase 1 placeholder sections used for demo and manual testing.
- *
- * Phase 2: remove once InspectionPresenter is wired to ObserveInspectionSessionUseCase
- * and reads live session data from the domain layer.
- */
-internal val inspectionDemoSections: List<InspectionSectionUi> = listOf(
-    InspectionSectionUi(
-        id = "section-equipment",
-        title = "Equipment Condition",
-        items = listOf(
-            ChecklistItemUi(
-                id = "item-power",
-                prompt = "Power supply is operational",
-                required = true,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-            ChecklistItemUi(
-                id = "item-cables",
-                prompt = "Cables and connectors are undamaged",
-                required = true,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-            ChecklistItemUi(
-                id = "item-label",
-                prompt = "Asset label is visible",
-                required = false,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-        ),
-    ),
-    InspectionSectionUi(
-        id = "section-safety",
-        title = "Safety Checks",
-        items = listOf(
-            ChecklistItemUi(
-                id = "item-fire",
-                prompt = "Fire extinguisher is accessible",
-                required = true,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-            ChecklistItemUi(
-                id = "item-exit",
-                prompt = "Emergency exit is unobstructed",
-                required = true,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-        ),
-    ),
-    InspectionSectionUi(
-        id = "section-environment",
-        title = "Environment",
-        items = listOf(
-            ChecklistItemUi(
-                id = "item-lighting",
-                prompt = "Lighting is adequate",
-                required = false,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-            ChecklistItemUi(
-                id = "item-temp",
-                prompt = "Temperature is within operating range",
-                required = true,
-                answer = ChecklistAnswerUi.Unanswered,
-                note = "",
-                evidenceCount = 0,
-            ),
-        ),
-    ),
-)
