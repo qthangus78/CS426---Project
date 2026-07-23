@@ -23,6 +23,11 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    sourceSets {
+        @Suppress("DEPRECATION")
+        getByName("test").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {

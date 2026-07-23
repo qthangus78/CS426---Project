@@ -68,6 +68,11 @@ class FieldFlowDatabaseTest {
             listOf(evidence),
             database.inspectionDao().observeEvidence(INSPECTION_ID).first(),
         )
+        val summary = database.inspectionDao().observeInspectionSummary(INSPECTION_ID).first()
+        requireNotNull(summary)
+        assertEquals("Computer Lab I.44", summary.title)
+        assertEquals(1, summary.completedItems)
+        assertEquals(2, summary.totalItems)
     }
 
     @Test

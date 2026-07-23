@@ -1,8 +1,9 @@
 package com.topic11.cs426.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Upsert
 import com.topic11.cs426.core.database.entity.PendingSyncEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,24 +21,67 @@ interface SyncDao {
     @Query("SELECT * FROM pending_sync WHERE id = :id")
     suspend fun getCommand(id: String): PendingSyncEntity?
 
-    @Upsert
-    suspend fun upsertCommand(command: PendingSyncEntity)
+    @Query("SELECT * FROM pending_sync ORDER BY created_at_ms, id")
+    suspend fun getCommands(): List<PendingSyncEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun enqueueCommand(command: PendingSyncEntity): Long
 
     @Query(
         """
         UPDATE pending_sync
-        SET state = :state,
-            attempt_count = :attemptCount,
-            last_error_code = :lastErrorCode,
+        SET state = 'SYNCING',
+            attempt_count = attempt_count + 1,
+            last_error_code = NULL,
             updated_at_ms = :updatedAtMillis
-        WHERE id = :id
+        WHERE id = :id AND state IN ('PENDING', 'FAILED')
         """,
     )
-    suspend fun updateState(
+    suspend fun markSyncing(
         id: String,
-        state: String,
-        attemptCount: Int,
-        lastErrorCode: String?,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE pending_sync
+        SET state = 'SYNCED',
+            last_error_code = NULL,
+            updated_at_ms = :updatedAtMillis
+        WHERE id = :id AND state = 'SYNCING'
+        """,
+    )
+    suspend fun markSynced(
+        id: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE pending_sync
+        SET state = 'FAILED',
+            last_error_code = :errorCode,
+            updated_at_ms = :updatedAtMillis
+        WHERE id = :id AND state = 'SYNCING'
+        """,
+    )
+    suspend fun markFailed(
+        id: String,
+        errorCode: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE pending_sync
+        SET state = 'PENDING',
+            last_error_code = NULL,
+            updated_at_ms = :updatedAtMillis
+        WHERE id = :id AND state = 'FAILED'
+        """,
+    )
+    suspend fun retryFailed(
+        id: String,
         updatedAtMillis: Long,
     ): Int
 }

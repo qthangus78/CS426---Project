@@ -45,6 +45,7 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:database"))
     implementation(project(":core:navigation"))
     implementation(project(":data"))
     implementation(project(":domain"))
@@ -63,7 +64,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.room.runtime)
     implementation(libs.circuit.foundation)
+    implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

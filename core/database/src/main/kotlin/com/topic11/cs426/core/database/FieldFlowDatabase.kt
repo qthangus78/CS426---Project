@@ -30,7 +30,7 @@ import com.topic11.cs426.core.database.entity.PendingSyncEntity
         MaintenanceIssueEntity::class,
         PendingSyncEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class FieldFlowDatabase : RoomDatabase() {
@@ -44,5 +44,6 @@ abstract class FieldFlowDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "fieldflow.db"
+        const val VERSION = 2
     }
 }
