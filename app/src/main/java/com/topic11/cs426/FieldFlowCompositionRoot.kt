@@ -1,6 +1,17 @@
 package com.topic11.cs426
 
+import android.content.Context
+import androidx.room.Room
 import com.slack.circuit.foundation.Circuit
+import com.topic11.cs426.core.database.FieldFlowDatabase
+import com.topic11.cs426.core.database.FieldFlowMigrations
+import com.topic11.cs426.data.RoomInspectionRepository
+import com.topic11.cs426.data.RoomIssueRepository
+import com.topic11.cs426.data.RoomTemplateRepository
+import com.topic11.cs426.data.seed.FieldFlowSampleDataSeeder
+import com.topic11.cs426.domain.repository.InspectionRepository
+import com.topic11.cs426.domain.repository.IssueRepository
+import com.topic11.cs426.domain.repository.TemplateRepository
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
@@ -21,23 +32,67 @@ import com.topic11.cs426.feature.reports.ReportsPresenterFactory
 import com.topic11.cs426.feature.reports.ReportsUiFactory
 import com.topic11.cs426.feature.templates.TemplatesPresenterFactory
 import com.topic11.cs426.feature.templates.TemplatesUiFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class FieldFlowCompositionRoot private constructor(
     val circuit: Circuit,
+    private val database: FieldFlowDatabase?,
+    private val applicationScope: CoroutineScope?,
 ) {
+    fun close() {
+        applicationScope?.cancel()
+        database?.close()
+    }
+
     companion object {
-        fun create(): FieldFlowCompositionRoot {
-            // Phase 2 demo repositories — replaced in Phase 3 with Room implementations
-            // once Lĩnh's :data module is wired into the composition root.
-            val inspectionRepository = DemoInspectionRepository()
-            val templateRepository = DemoTemplateRepository()
-            val issueRepository = DemoIssueRepository()
+        fun create(
+            context: Context,
+            dataMode: DataMode = DataMode.ROOM,
+        ): FieldFlowCompositionRoot {
+            val database = when (dataMode) {
+                DataMode.ROOM -> Room.databaseBuilder(
+                    context.applicationContext,
+                    FieldFlowDatabase::class.java,
+                    FieldFlowDatabase.DATABASE_NAME,
+                )
+                    .addMigrations(*FieldFlowMigrations.ALL)
+                    .build()
+
+                DataMode.FAKE -> null
+            }
+            val inspectionRepository: InspectionRepository
+            val templateRepository: TemplateRepository
+            val issueRepository: IssueRepository
+            when (dataMode) {
+                DataMode.ROOM -> {
+                    val roomDatabase = requireNotNull(database)
+                    inspectionRepository = RoomInspectionRepository(roomDatabase)
+                    templateRepository = RoomTemplateRepository(roomDatabase.catalogDao())
+                    issueRepository = RoomIssueRepository(roomDatabase.issueDao())
+                }
+
+                DataMode.FAKE -> {
+                    inspectionRepository = DemoInspectionRepository()
+                    templateRepository = DemoTemplateRepository()
+                    issueRepository = DemoIssueRepository()
+                }
+            }
+            val applicationScope = database?.let {
+                CoroutineScope(SupervisorJob() + Dispatchers.IO).also { scope ->
+                    scope.launch {
+                        FieldFlowSampleDataSeeder(it).seedIfEmpty()
+                    }
+                }
+            }
 
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
             val observeInspection = ObserveInspectionUseCase(inspectionRepository)
             val saveInspectionDraft = SaveInspectionDraftUseCase(inspectionRepository)
             val validateInspection = ValidateInspectionUseCase()
-
             val completeInspection = CompleteInspectionUseCase(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
@@ -71,7 +126,16 @@ class FieldFlowCompositionRoot private constructor(
                 .addUiFactory(ReportsUiFactory())
                 .build()
 
-            return FieldFlowCompositionRoot(circuit = circuit)
+            return FieldFlowCompositionRoot(
+                circuit = circuit,
+                database = database,
+                applicationScope = applicationScope,
+            )
         }
     }
+}
+
+enum class DataMode {
+    ROOM,
+    FAKE,
 }

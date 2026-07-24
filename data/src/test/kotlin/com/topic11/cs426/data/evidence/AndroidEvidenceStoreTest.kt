@@ -2,6 +2,8 @@ package com.topic11.cs426.data.evidence
 
 import android.net.Uri
 import com.topic11.cs426.core.database.entity.EvidenceEntity
+import com.topic11.cs426.domain.model.EvidenceId
+import com.topic11.cs426.domain.repository.EvidenceSource
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -59,6 +61,39 @@ class AndroidEvidenceStoreTest {
         }
 
         assertFalse(fileStorage.exists("evidence/evidence-photo"))
+    }
+
+    @Test
+    fun `domain evidence contract returns managed reference and deletes both resources`() = runTest {
+        val fileStorage = EvidenceFileStorage(temporaryFolder.root)
+        var metadata: EvidenceEntity? = null
+        val store = AndroidEvidenceStore(
+            openSource = { ByteArrayInputStream(byteArrayOf(1, 2, 3)) },
+            fileStorage = fileStorage,
+            persistMetadata = { metadata = it },
+            findMetadata = { metadata },
+            deleteMetadata = { metadata = null },
+            evidenceIdFactory = { "evidence-domain" },
+            clock = { 3_000L },
+        )
+
+        val reference = store.persist(
+            EvidenceSource(
+                inspectionId = "inspection-lab-i44",
+                checklistItemId = "item-extinguisher",
+                uriString = "content://fieldflow/photo",
+                mimeType = "image/jpeg",
+            ),
+        )
+
+        assertEquals(EvidenceId("evidence-domain"), reference.id)
+        assertEquals("fieldflow-evidence://managed/evidence-domain", reference.uriString)
+        assertTrue(fileStorage.exists(requireNotNull(metadata).storageKey))
+
+        store.delete(reference)
+
+        assertFalse(fileStorage.exists("evidence/evidence-domain"))
+        assertEquals(null, metadata)
     }
 
     @Test

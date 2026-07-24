@@ -6,6 +6,7 @@ import com.topic11.cs426.core.database.entity.InspectionEntity
 
 data class InspectionDraftRecord(
     val inspection: InspectionEntity,
+    val assetName: String,
     val answers: List<InspectionAnswerEntity>,
     val evidence: List<EvidenceEntity>,
 )

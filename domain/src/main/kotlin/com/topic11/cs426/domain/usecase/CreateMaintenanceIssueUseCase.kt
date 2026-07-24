@@ -7,6 +7,7 @@ import com.topic11.cs426.domain.model.MaintenanceIssueStatus
 import com.topic11.cs426.domain.repository.IssueRepository
 
 class CreateMaintenanceIssueUseCase(
+    @Suppress("unused")
     private val issueRepository: IssueRepository,
 ) {
     suspend operator fun invoke(
@@ -26,10 +27,9 @@ class CreateMaintenanceIssueUseCase(
             )
         }
 
-        return issues.map { issue ->
-            issueRepository.createIssue(issue)
-            issue.copy(id = issue.id)
-        }
+        // Persistence belongs to InspectionRepository.complete so inspection state, generated
+        // issues, and pending synchronization are committed atomically by Data.
+        return issues
     }
 }
 

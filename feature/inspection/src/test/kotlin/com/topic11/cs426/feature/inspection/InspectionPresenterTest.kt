@@ -408,10 +408,10 @@ class InspectionPresenterTest {
             assertEquals(completed.score, persistedSession.score?.percent)
             assertTrue(completed.score != null)
             assertEquals(1, completed.issueCount)
-            assertEquals(1, issueRepository.createdIssues.size)
+            assertEquals(1, inspectionRepository.completedIssues.size)
             assertEquals(
                 ChecklistItemId("item-fire"),
-                issueRepository.createdIssues.single().checklistItemId,
+                inspectionRepository.completedIssues.single().checklistItemId,
             )
             assertEquals(InspectionStatus.COMPLETED, dashboardSummary.status)
             cancelAndIgnoreRemainingEvents()
@@ -672,6 +672,8 @@ private class FakeInspectionRepository(
 
     private val sessions = MutableStateFlow(session)
     var failSaves: Boolean = false
+    var completedIssues: List<com.topic11.cs426.domain.model.MaintenanceIssue> = emptyList()
+        private set
     val savedSession: InspectionSession
         get() = sessions.value
 
@@ -708,6 +710,7 @@ private class FakeInspectionRepository(
 
     override suspend fun complete(completed: CompletedInspection) {
         if (sessions.value.id == completed.id) {
+            completedIssues = completed.issues
             sessions.value = sessions.value.copy(
                 status = InspectionStatus.COMPLETED,
                 answers = completed.answers,

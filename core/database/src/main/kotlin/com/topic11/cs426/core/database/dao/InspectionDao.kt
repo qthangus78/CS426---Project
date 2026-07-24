@@ -81,8 +81,26 @@ interface InspectionDao {
     @Query("SELECT * FROM inspections WHERE id = :inspectionId")
     fun observeInspection(inspectionId: String): Flow<InspectionEntity?>
 
+    @Query(
+        """
+        SELECT assets.name FROM assets
+        INNER JOIN inspections ON inspections.asset_id = assets.id
+        WHERE inspections.id = :inspectionId
+        """,
+    )
+    fun observeAssetName(inspectionId: String): Flow<String?>
+
     @Query("SELECT * FROM inspections WHERE id = :inspectionId")
     suspend fun getInspection(inspectionId: String): InspectionEntity?
+
+    @Query(
+        """
+        SELECT assets.name FROM assets
+        INNER JOIN inspections ON inspections.asset_id = assets.id
+        WHERE inspections.id = :inspectionId
+        """,
+    )
+    suspend fun getAssetName(inspectionId: String): String?
 
     @Query(
         """
@@ -101,6 +119,9 @@ interface InspectionDao {
         """,
     )
     suspend fun getEvidence(inspectionId: String): List<EvidenceEntity>
+
+    @Query("SELECT * FROM evidence WHERE id = :evidenceId")
+    suspend fun getEvidenceById(evidenceId: String): EvidenceEntity?
 
     @Query(
         """
@@ -129,6 +150,12 @@ interface InspectionDao {
     @Upsert
     suspend fun upsertEvidence(evidence: List<EvidenceEntity>)
 
+    @Query("DELETE FROM evidence WHERE id = :evidenceId")
+    suspend fun deleteEvidence(evidenceId: String): Int
+
+    @Query("DELETE FROM inspection_answers WHERE inspection_id = :inspectionId")
+    suspend fun deleteAnswers(inspectionId: String)
+
     @Upsert
     suspend fun upsertIssues(issues: List<MaintenanceIssueEntity>)
 
@@ -138,8 +165,12 @@ interface InspectionDao {
     @Transaction
     suspend fun getDraft(inspectionId: String): InspectionDraftRecord? {
         val inspection = getInspection(inspectionId) ?: return null
+        val assetName = checkNotNull(getAssetName(inspectionId)) {
+            "Inspection asset no longer exists: $inspectionId"
+        }
         return InspectionDraftRecord(
             inspection = inspection,
+            assetName = assetName,
             answers = getAnswers(inspectionId),
             evidence = getEvidence(inspectionId),
         )
@@ -152,6 +183,7 @@ interface InspectionDao {
         evidence: List<EvidenceEntity>,
     ) {
         upsertInspection(inspection)
+        deleteAnswers(inspection.id)
         upsertAnswers(answers)
         upsertEvidence(evidence)
     }
@@ -165,6 +197,7 @@ interface InspectionDao {
         pendingSync: List<PendingSyncEntity>,
     ) {
         upsertInspection(inspection)
+        deleteAnswers(inspection.id)
         upsertAnswers(answers)
         upsertEvidence(evidence)
         upsertIssues(issues)
