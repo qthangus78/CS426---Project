@@ -14,13 +14,18 @@ import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionTemplateSummary
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
+import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.repository.InspectionRepository
+import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 // ── Demo template ─────────────────────────────────────────────────────────────
 
@@ -152,7 +157,44 @@ internal class DemoInspectionRepository : InspectionRepository {
         sessions.value = sessions.value.map { if (it.id == session.id) session else it }
     }
 
-    override suspend fun complete(completed: CompletedInspection) = Unit
+    override suspend fun complete(completed: CompletedInspection) {
+        sessions.update { list ->
+            list.map { session ->
+                if (session.id == completed.id) {
+                    session.copy(
+                        status = InspectionStatus.COMPLETED,
+                        answers = completed.answers,
+                        score = completed.score,
+                        completedAtMillis = completed.completedAtMillis,
+                    )
+                } else {
+                    session
+                }
+            }
+        }
+    }
+}
+
+// ── DemoIssueRepository ───────────────────────────────────────────────────────
+
+/**
+ * Demo [IssueRepository] used while the real Room implementation is not yet wired.
+ */
+internal class DemoIssueRepository : IssueRepository {
+    private val issues = MutableStateFlow<List<MaintenanceIssue>>(emptyList())
+
+    override fun observeIssues(): Flow<List<MaintenanceIssue>> = issues.asStateFlow()
+
+    override suspend fun createIssue(issue: MaintenanceIssue): IssueId {
+        issues.update { it + issue }
+        return issue.id
+    }
+
+    override suspend fun updateIssue(issue: MaintenanceIssue) {
+        issues.update { list ->
+            list.map { if (it.id == issue.id) issue else it }
+        }
+    }
 }
 
 // ── DemoTemplateRepository ────────────────────────────────────────────────────

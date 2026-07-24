@@ -33,6 +33,7 @@ sealed interface InspectionState : CircuitUiState {
         val sections: List<InspectionSectionUi>,
         val currentSectionIndex: Int,
         val progress: InspectionProgress,
+        val saveError: String? = null,
         override val eventSink: (InspectionEvent) -> Unit,
     ) : InspectionState {
         val currentSection: InspectionSectionUi?
@@ -50,6 +51,7 @@ sealed interface InspectionState : CircuitUiState {
         val title: String,
         val sections: List<InspectionSectionUi>,
         val progress: InspectionProgress,
+        val saveError: String? = null,
         override val eventSink: (InspectionEvent) -> Unit,
     ) : InspectionState
 
@@ -58,6 +60,7 @@ sealed interface InspectionState : CircuitUiState {
         val title: String,
         val sections: List<InspectionSectionUi>,
         val errors: List<ValidationError>,
+        val saveError: String? = null,
         override val eventSink: (InspectionEvent) -> Unit,
     ) : InspectionState
 
@@ -65,6 +68,9 @@ sealed interface InspectionState : CircuitUiState {
     data class Completed(
         val title: String,
         val summary: InspectionProgress,
+        val score: Float? = null,
+        val issueCount: Int = 0,
+        val nextInspectionDueAtMillis: Long? = null,
         override val eventSink: (InspectionEvent) -> Unit,
     ) : InspectionState
 }
@@ -131,12 +137,23 @@ data class ChecklistItemUi(
     val id: String,
     val prompt: String,
     val required: Boolean,
+    val inputType: ChecklistAnswerInputUi = ChecklistAnswerInputUi.PassFailNotApplicable,
     val answer: ChecklistAnswerUi,
     val note: String,
-    val evidenceCount: Int,
+    val evidenceRefs: List<String> = emptyList(),
 ) {
+    val evidenceCount: Int
+        get() = evidenceRefs.size
+
     val isAnswered: Boolean
         get() = answer !is ChecklistAnswerUi.Unanswered
+}
+
+/** The input control used to collect an answer. */
+@Immutable
+enum class ChecklistAnswerInputUi {
+    PassFailNotApplicable,
+    Text,
 }
 
 /** The answer captured for a checklist item. */
@@ -146,6 +163,9 @@ sealed interface ChecklistAnswerUi {
 
     /** Pass / fail style answer. */
     data class Compliance(val isCompliant: Boolean) : ChecklistAnswerUi
+
+    /** The item does not apply to this inspection. */
+    data object NotApplicable : ChecklistAnswerUi
 
     /** Free-text answer. */
     data class Text(val value: String) : ChecklistAnswerUi

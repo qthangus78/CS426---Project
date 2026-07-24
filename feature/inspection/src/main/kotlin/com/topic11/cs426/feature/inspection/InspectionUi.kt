@@ -1,5 +1,6 @@
 package com.topic11.cs426.feature.inspection
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,11 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.topic11.cs426.core.designsystem.FieldFlowTopAppBar
 import com.topic11.cs426.core.designsystem.LoadingContent
+import java.util.Date
 
 @Composable
 internal fun InspectionUi(
@@ -87,6 +90,10 @@ private fun InspectionEditingScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { ProgressRow(progress = state.progress) }
+
+            state.saveError?.let { message ->
+                item { SaveErrorMessage(message) }
+            }
 
             item {
                 Text(
@@ -176,6 +183,10 @@ private fun InspectionReviewingScreen(
         ) {
             item { ProgressRow(progress = state.progress) }
 
+            state.saveError?.let { message ->
+                item { SaveErrorMessage(message) }
+            }
+
             item {
                 Text(
                     text = "Review your answers before completing.",
@@ -240,6 +251,10 @@ private fun InspectionValidationFailedScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            state.saveError?.let { message ->
+                SaveErrorMessage(message)
+            }
+
             Text(
                 text = "Please fix the following before completing:",
                 style = MaterialTheme.typography.titleSmall,
@@ -267,6 +282,15 @@ private fun InspectionValidationFailedScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SaveErrorMessage(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 // ── Completed ─────────────────────────────────────────────────────────────────
@@ -299,14 +323,43 @@ private fun InspectionCompletedScreen(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.semantics { contentDescription = "Inspection complete" },
             )
+
+            state.score?.let { percent ->
+                val scoreText = (percent * 100).toInt().toString() + "%"
+                Text(
+                    text = "Score: $scoreText",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
             Text(
                 text = "${state.summary.completedItems} of ${state.summary.totalItems} items answered",
                 style = MaterialTheme.typography.bodyLarge,
             )
+
+            if (state.issueCount > 0) {
+                Text(
+                    text = "⚠️ ${state.issueCount} issues identified for maintenance.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            state.nextInspectionDueAtMillis?.let { dueAt ->
+                val dateStr = DateFormat.getMediumDateFormat(LocalContext.current).format(Date(dueAt))
+                Text(
+                    text = "Next inspection due: $dateStr",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             LinearProgressIndicator(
                 progress = { state.summary.fraction },
                 modifier = Modifier.fillMaxWidth(),
             )
+
             TextButton(onClick = { state.eventSink(InspectionEvent.BackSelected) }) {
                 Text("Back to Dashboard")
             }
@@ -347,19 +400,20 @@ private fun ChecklistItemRow(
             text = "${item.prompt}$requiredMarker",
             style = MaterialTheme.typography.bodyMedium,
         )
-        // Answer input — text field for Text answers, compliance buttons otherwise
-        when (val answer = item.answer) {
-            is ChecklistAnswerUi.Text -> {
+        when (item.inputType) {
+            ChecklistAnswerInputUi.Text -> {
                 OutlinedTextField(
-                    value = answer.value,
+                    value = (item.answer as? ChecklistAnswerUi.Text)?.value.orEmpty(),
                     onValueChange = { onAnswerChange(ChecklistAnswerUi.Text(it)) },
                     label = { Text("Answer") },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            else -> {
+
+            ChecklistAnswerInputUi.PassFailNotApplicable -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val isCompliant = (item.answer as? ChecklistAnswerUi.Compliance)?.isCompliant
+                    val isNotApplicable = item.answer == ChecklistAnswerUi.NotApplicable
                     OutlinedButton(
                         onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = true)) },
                         colors = if (isCompliant == true) {
@@ -376,6 +430,14 @@ private fun ChecklistItemRow(
                             )
                         } else ButtonDefaults.outlinedButtonColors(),
                     ) { Text("Fail") }
+                    OutlinedButton(
+                        onClick = { onAnswerChange(ChecklistAnswerUi.NotApplicable) },
+                        colors = if (isNotApplicable) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            )
+                        } else ButtonDefaults.outlinedButtonColors(),
+                    ) { Text("N/A") }
                 }
             }
         }
@@ -394,9 +456,7 @@ private fun ChecklistItemRow(
         }
     }
 
-    // Evidence picker — Phase 1 stub: both options fire a placeholder ref so the
-    // evidenceCount increments and the UI reflects the attachment. Phase 2 replaces
-    // the stubs with a real camera / gallery intent.
+    // Evidence picker uses unique demo references until a real evidence store is wired.
     if (showEvidencePicker) {
         ModalBottomSheet(onDismissRequest = { showEvidencePicker = false }) {
             Column(
@@ -411,7 +471,7 @@ private fun ChecklistItemRow(
                 )
                 TextButton(
                     onClick = {
-                        onEvidenceAdd("photo-stub")
+                        onEvidenceAdd("photo-${System.currentTimeMillis()}")
                         showEvidencePicker = false
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -420,7 +480,7 @@ private fun ChecklistItemRow(
                 }
                 TextButton(
                     onClick = {
-                        onEvidenceAdd("gallery-stub")
+                        onEvidenceAdd("gallery-${System.currentTimeMillis()}")
                         showEvidencePicker = false
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -446,6 +506,7 @@ private fun ReadOnlyItemRow(item: ChecklistItemUi) {
     val answerLabel = when (val a = item.answer) {
         is ChecklistAnswerUi.Unanswered -> "—"
         is ChecklistAnswerUi.Compliance -> if (a.isCompliant) "Pass" else "Fail"
+        ChecklistAnswerUi.NotApplicable -> "N/A"
         is ChecklistAnswerUi.Text -> a.value
     }
     Row(
@@ -472,4 +533,3 @@ private fun SectionNavRow(
         TextButton(onClick = onNext, enabled = hasNext) { Text("Next →") }
     }
 }
-

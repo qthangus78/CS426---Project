@@ -8,11 +8,17 @@ import com.slack.circuit.runtime.ui.Ui
 import com.slack.circuit.runtime.ui.ui
 import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.domain.repository.TemplateRepository
+import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
+import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
+import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
 
 class InspectionPresenterFactory(
     private val observeInspection: ObserveInspectionUseCase,
     private val templateRepository: TemplateRepository,
+    private val saveInspectionDraft: SaveInspectionDraftUseCase,
+    private val validateInspection: ValidateInspectionUseCase,
+    private val completeInspection: CompleteInspectionUseCase,
 ) : Presenter.Factory {
     override fun create(
         screen: Screen,
@@ -25,6 +31,9 @@ class InspectionPresenterFactory(
                 navigator = navigator,
                 observeInspection = observeInspection,
                 templateRepository = templateRepository,
+                saveInspectionDraft = saveInspectionDraft,
+                validateInspection = validateInspection,
+                completeInspection = completeInspection,
             )
             else -> null
         }

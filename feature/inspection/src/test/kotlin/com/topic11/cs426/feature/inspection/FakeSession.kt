@@ -23,7 +23,6 @@ internal object FakeSession {
                     required = true,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
                 ChecklistItemUi(
                     id = "item-cables",
@@ -31,7 +30,6 @@ internal object FakeSession {
                     required = true,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
                 ChecklistItemUi(
                     id = "item-label",
@@ -39,7 +37,6 @@ internal object FakeSession {
                     required = false,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
             ),
         ),
@@ -53,7 +50,6 @@ internal object FakeSession {
                     required = true,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
                 ChecklistItemUi(
                     id = "item-exit",
@@ -61,7 +57,6 @@ internal object FakeSession {
                     required = true,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
             ),
         ),
@@ -75,7 +70,6 @@ internal object FakeSession {
                     required = false,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
                 ChecklistItemUi(
                     id = "item-temp",
@@ -83,7 +77,6 @@ internal object FakeSession {
                     required = true,
                     answer = ChecklistAnswerUi.Unanswered,
                     note = "",
-                    evidenceCount = 0,
                 ),
             ),
         ),
