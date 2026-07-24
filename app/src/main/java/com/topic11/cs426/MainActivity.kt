@@ -14,10 +14,12 @@ import com.topic11.cs426.core.designsystem.FieldFlowTheme
 import com.topic11.cs426.core.navigation.DashboardScreen
 
 class MainActivity : ComponentActivity() {
+    private lateinit var compositionRoot: FieldFlowCompositionRoot
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val compositionRoot = FieldFlowCompositionRoot.create()
+        compositionRoot = FieldFlowCompositionRoot.create(applicationContext)
 
         setContent {
             FieldFlowTheme {
@@ -35,5 +37,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        compositionRoot.close()
+        super.onDestroy()
     }
 }
