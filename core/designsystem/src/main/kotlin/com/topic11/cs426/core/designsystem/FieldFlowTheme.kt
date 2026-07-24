@@ -20,6 +20,17 @@ private val LightColors = lightColorScheme(
     onSurface = Color(0xFF17211B),
     surfaceVariant = Color(0xFFE2E9E1),
     onSurfaceVariant = Color(0xFF424C43),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF1F5F0),
+    surfaceContainer = Color(0xFFEAF0E9),
+    surfaceContainerHigh = Color(0xFFE1E9E0),
+    primaryContainer = Color(0xFFD5EBDD),
+    onPrimaryContainer = Color(0xFF103721),
+    secondaryContainer = Color(0xFFD7E8F8),
+    onSecondaryContainer = Color(0xFF143754),
+    tertiaryContainer = Color(0xFFFFE2A9),
+    onTertiaryContainer = Color(0xFF3D2B00),
+    outlineVariant = Color(0xFFC7D1C6),
 )
 
 private val DarkColors = darkColorScheme(
@@ -35,6 +46,17 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFE0E7DF),
     surfaceVariant = Color(0xFF3F493F),
     onSurfaceVariant = Color(0xFFC3CCC1),
+    surfaceContainerLowest = Color(0xFF0B100D),
+    surfaceContainerLow = Color(0xFF151D17),
+    surfaceContainer = Color(0xFF1B241D),
+    surfaceContainerHigh = Color(0xFF253027),
+    primaryContainer = Color(0xFF174A2A),
+    onPrimaryContainer = Color(0xFFD2F0DA),
+    secondaryContainer = Color(0xFF173A55),
+    onSecondaryContainer = Color(0xFFD2E8FB),
+    tertiaryContainer = Color(0xFF5B4200),
+    onTertiaryContainer = Color(0xFFFFE1A2),
+    outlineVariant = Color(0xFF435046),
 )
 
 @Composable
@@ -44,6 +66,7 @@ fun FieldFlowTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
+        typography = FieldFlowTypography,
         content = content,
     )
 }
