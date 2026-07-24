@@ -1,6 +1,10 @@
 package com.topic11.cs426
 
+import android.content.Context
 import com.slack.circuit.foundation.Circuit
+import com.topic11.cs426.domain.repository.InspectionRepository
+import com.topic11.cs426.domain.repository.IssueRepository
+import com.topic11.cs426.domain.repository.TemplateRepository
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
@@ -24,15 +28,39 @@ import com.topic11.cs426.feature.templates.TemplatesUiFactory
 
 class FieldFlowCompositionRoot private constructor(
     val circuit: Circuit,
-) {
+) : AutoCloseable {
+    private var isClosed = false
+
+    override fun close() {
+        if (isClosed) return
+
+        isClosed = true
+    }
+
     companion object {
-        fun create(): FieldFlowCompositionRoot {
-            // Phase 2 demo repositories — replaced in Phase 3 with Room implementations
-            // once Lĩnh's :data module is wired into the composition root.
+        /**
+         * Creates the app-scoped object graph. [applicationContext] is intentionally accepted
+         * at this Android boundary so Phase 3 can build and seed Room here without affecting
+         * presentation wiring.
+         */
+        fun create(applicationContext: Context): FieldFlowCompositionRoot {
+            // Phase 3 binding replacement point: create and seed Room-backed repositories here.
             val inspectionRepository = DemoInspectionRepository()
             val templateRepository = DemoTemplateRepository()
             val issueRepository = DemoIssueRepository()
 
+            return createWithRepositories(
+                inspectionRepository = inspectionRepository,
+                templateRepository = templateRepository,
+                issueRepository = issueRepository,
+            )
+        }
+
+        private fun createWithRepositories(
+            inspectionRepository: InspectionRepository,
+            templateRepository: TemplateRepository,
+            issueRepository: IssueRepository,
+        ): FieldFlowCompositionRoot {
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
             val observeInspection = ObserveInspectionUseCase(inspectionRepository)
             val saveInspectionDraft = SaveInspectionDraftUseCase(inspectionRepository)

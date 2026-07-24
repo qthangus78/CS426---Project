@@ -176,6 +176,31 @@ class InspectionPresenterTest {
         }
     }
 
+    @Test
+    fun `answer note and evidence changes stay local until the draft is saved`() = runTest {
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(inspectionRepository = inspectionRepository).test {
+            var state = awaitEditing()
+            val firstItem = state.sections.first().items.first()
+
+            state.eventSink(InspectionEvent.AnswerChanged(firstItem.id, ChecklistAnswerUi.Compliance(true)))
+            state = awaitItem() as InspectionState.Editing
+            state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Checked locally"))
+            state = awaitItem() as InspectionState.Editing
+            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "evidence-local"))
+            state = awaitItem() as InspectionState.Editing
+
+            val updatedItem = state.sections.first().items.first()
+            assertEquals(ChecklistAnswerUi.Compliance(true), updatedItem.answer)
+            assertEquals("Checked locally", updatedItem.note)
+            assertEquals(listOf("evidence-local"), updatedItem.evidenceRefs)
+            assertEquals(0, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.savedSession.answers.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── Section navigation ─────────────────────────────────────────────────────
 
     @Test
@@ -188,6 +213,24 @@ class InspectionPresenterTest {
 
             val next = awaitItem() as InspectionState.Editing
             assertEquals(1, next.currentSectionIndex)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `NextSection stores the next section id in the saved draft`() = runTest {
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(inspectionRepository = inspectionRepository).test {
+            val editing = awaitEditing()
+            editing.eventSink(InspectionEvent.NextSection)
+            val next = awaitItem() as InspectionState.Editing
+
+            next.eventSink(InspectionEvent.SaveDraftSelected)
+            advanceUntilIdle()
+
+            assertEquals(SectionId("section-safety"), inspectionRepository.savedSession.currentSectionId)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -219,6 +262,30 @@ class InspectionPresenterTest {
 
             val backToFirst = awaitItem() as InspectionState.Editing
             assertEquals(0, backToFirst.currentSectionIndex)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `PreviousSection stores the previous section id in the saved draft`() = runTest {
+        val restoredSession = FakeInspectionRepository.createSession().copy(
+            currentSectionId = SectionId("section-safety"),
+        )
+        val inspectionRepository = FakeInspectionRepository(restoredSession)
+
+        presenter(
+            initialSession = restoredSession,
+            inspectionRepository = inspectionRepository,
+        ).test {
+            val editing = awaitEditing()
+            editing.eventSink(InspectionEvent.PreviousSection)
+            val previous = awaitItem() as InspectionState.Editing
+
+            previous.eventSink(InspectionEvent.SaveDraftSelected)
+            advanceUntilIdle()
+
+            assertEquals(SectionId("section-equipment"), inspectionRepository.savedSession.currentSectionId)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -441,45 +508,34 @@ class InspectionPresenterTest {
     }
 
     @Test
-    fun `CompleteSelected shows error when domain completion fails`() = runTest {
+    fun `CompleteSelected keeps the saved draft when domain completion fails`() = runTest {
         val inspectionRepository = FakeInspectionRepository.create()
-        // Force a domain error by using an inspection that doesn't exist in the "template" repo fake
-        // (Our FakeTemplateRepository only knows about "template-standard")
-        val invalidSession = FakeInspectionRepository.createSession().copy(
-            id = InspectionId("non-existent"),
-            templateId = TemplateId("missing-template")
+        val notStartedSession = FakeInspectionRepository.createSession().copy(
+            status = InspectionStatus.NOT_STARTED,
         )
 
         presenter(
-            initialSession = invalidSession,
-            inspectionRepository = FakeInspectionRepository(invalidSession)
+            initialSession = notStartedSession,
+            inspectionRepository = inspectionRepository,
         ).test {
-            awaitItem() // Loading
-            // First state is Loading because session is found but template is missing in fake repo
-            // Wait, our InspectionPresenter returns Loading if template is null.
-            // Let's use a session that is NOT_STARTED to trigger a domain error from CompleteInspectionUseCase
-            val notStartedSession = FakeInspectionRepository.createSession().copy(
-                status = InspectionStatus.NOT_STARTED
-            )
-            presenter(
-                initialSession = notStartedSession,
-                inspectionRepository = FakeInspectionRepository(notStartedSession)
-            ).test {
-                awaitItem() // Loading
-                var state = awaitEditing()
-                // Answer all required items
-                FakeSession.sections.flatMap { it.items }.filter { it.required }.forEach { item ->
-                    state.eventSink(InspectionEvent.AnswerChanged(item.id, ChecklistAnswerUi.Compliance(true)))
-                    state = awaitItem() as InspectionState.Editing
-                }
-                state.eventSink(InspectionEvent.ReviewSelected)
-                val reviewing = awaitItem() as InspectionState.Reviewing
-                reviewing.eventSink(InspectionEvent.CompleteSelected)
-                val failed = awaitItem() as InspectionState.Reviewing
-                assertTrue("Expected domain error message",
-                    failed.saveError?.contains("NOT_STARTED") == true)
-                cancelAndIgnoreRemainingEvents()
+            var state = awaitEditing()
+            FakeSession.sections.flatMap { it.items }.filter { it.required }.forEach { item ->
+                state.eventSink(InspectionEvent.AnswerChanged(item.id, ChecklistAnswerUi.Compliance(true)))
+                state = awaitItem() as InspectionState.Editing
             }
+
+            state.eventSink(InspectionEvent.ReviewSelected)
+            val reviewing = awaitItem() as InspectionState.Reviewing
+            reviewing.eventSink(InspectionEvent.CompleteSelected)
+
+            val failed = awaitItem() as InspectionState.Reviewing
+            assertTrue("Expected domain error message", failed.saveError?.contains("NOT_STARTED") == true)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertEquals(
+                FakeSession.sections.flatMap { it.items }.count { it.required },
+                inspectionRepository.savedSession.answers.count { it.value != null },
+            )
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -558,6 +614,7 @@ class InspectionPresenterTest {
             assertEquals(ChecklistAnswerValue.Pass, saved.answers.single().value)
             assertEquals("Needs follow-up", saved.answers.single().note)
             assertEquals(listOf(EvidenceId("photo-1")), saved.answers.single().evidenceIds)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -597,6 +654,7 @@ class InspectionPresenterTest {
 
             val failedSave = awaitItem() as InspectionState.Editing
             assertEquals("Couldn't save draft.", failedSave.saveError)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
             assertTrue(inspectionRepository.savedSession.answers.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
@@ -672,6 +730,7 @@ private class FakeInspectionRepository(
 
     private val sessions = MutableStateFlow(session)
     var failSaves: Boolean = false
+    var saveDraftAttempts: Int = 0
     val savedSession: InspectionSession
         get() = sessions.value
 
@@ -702,6 +761,7 @@ private class FakeInspectionRepository(
     ): InspectionId = sessions.value.id
 
     override suspend fun saveDraft(session: InspectionSession) {
+        saveDraftAttempts += 1
         if (failSaves) error("Repository unavailable")
         sessions.value = session
     }
