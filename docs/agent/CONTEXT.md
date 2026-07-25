@@ -1,36 +1,28 @@
-# FieldFlow Agent Context Pack (v0.2)
+# FieldFlow Agent Context Pack (v0.3)
 
 ## Project Snapshot
 
-FieldFlow is an Android multi-module app for inspection workflows.
+FieldFlow is a multi-module Android inspection workflow app.
 
-Core shape:
+- `:app` composes the current runtime, which uses deterministic demo repositories.
+- `:domain` is pure Kotlin and contains the inspection workflow contracts and rules.
+- `:data` implements the outer data boundary: Room mapping/repository foundations, seeding, evidence storage, and fake sync.
+- `:core:database` owns Room version 2, entities, DAOs, migrations, schemas, and database tests.
+- `:feature:inspection` provides an editable draft/review/validate/complete workflow.
+- Assets, Templates, Issues, and Reports remain presentation boundaries rather than full product workflows.
 
-- `app` assembles concrete dependencies;
-- `domain` holds business rules and ports;
-- `data` implements repositories and adapters;
-- `core/*` holds shared navigation, UI, database, and test helpers;
-- `feature/*` holds presentation slices.
-
-Current bootstrap status:
-
-- the working vertical slice is Dashboard to read-only Inspection;
-- data uses deterministic fake repositories;
-- Room, offline sync, evidence storage, and report export are target architecture items, not completed implementation.
+Do not confuse an implemented Room/Data foundation with runtime integration. `FieldFlowCompositionRoot` is the only place allowed to replace demo bindings.
 
 ## Default Read Set
 
-Use this set for most tasks:
-
 - `README.md`
-- `docs/FieldFlow_Project_Proposal.pdf`
+- `AGENTS.md`
 - `docs/architecture/MODULE_GRAPH.md`
 - `docs/architecture/TEAM_OWNERSHIP.md`
-- `AGENTS.md`
 - this file
 - `docs/agent/EVALUATION.md`
 
-For agent-environment changes, also read `docs/agent/SOURCES.md`.
+Add `core/database/README.md` and `docs/architecture/DATA_SCHEMA.md` for data or persistence work. Read proposal material only when the task needs future product intent rather than current behavior.
 
 ## Task Template
 
@@ -48,50 +40,16 @@ Done when:
 
 ## Task-Specific Read Set
 
-Domain work:
+Domain work: `domain/src/main/**`, `domain/src/test/**`, and relevant `core/testing/**` fixtures.
 
-- `domain/src/main/**`
-- `domain/src/test/**`
-- `core/testing/**` when fixtures or fake ports are needed
+Data or database work: `data/src/main/**`, `data/src/test/**`, `core/database/**`, and affected Domain ports/use cases.
 
-Data work:
+Inspection or app integration: `feature/inspection/**`, `core/navigation/**`, `app/**`, and the contracts consumed by the slice.
 
-- `data/src/main/**`
-- `data/src/test/**`
-- `core/database/**`
+Dashboard or report UI: `feature/dashboard/**`, `feature/reports/**`, and `core/designsystem/**`.
 
-Inspection or app integration:
-
-- `feature/inspection/**`
-- `core/navigation/**`
-- `app/**`
-
-Dashboard or report UI:
-
-- `feature/dashboard/**`
-- `feature/reports/**`
-- `core/designsystem/**`
-
-Agent environment work:
-
-- `AGENTS.md`
-- `docs/agent/**`
-- `scripts/agent/**`
-- official sources listed in `docs/agent/SOURCES.md`
+Agent-environment work: `AGENTS.md`, `docs/agent/**`, `scripts/agent/**`, and official sources in `docs/agent/SOURCES.md`.
 
 ## Stop Conditions
 
-Stop and reassess if:
-
-- the task crosses module boundaries without a settled contract;
-- a change would leak framework types into `domain`;
-- a new folder name feels generic rather than capability-based;
-- the verification scope is unclear.
-- an external source conflicts with current repo docs. In that case, preserve current repo behavior and record the source gap.
-
-## Useful Extra Ideas
-
-- Keep one short ADR for non-trivial architecture changes.
-- Put a small checklist in every task when the change is cross-module.
-- Use subagents for planning, implementation, and verification instead of one large prompt.
-- Prefer change-specific context over dumping the entire repo every time.
+Stop and reassess if a task crosses module boundaries without a settled contract, leaks framework types into Domain, introduces a generic folder, duplicates an existing persistence capability, or treats a placeholder UI as implemented business functionality.

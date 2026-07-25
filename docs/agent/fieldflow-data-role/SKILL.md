@@ -11,7 +11,7 @@ Own Data-layer work without leaking persistence or adapter details into Domain o
 
 1. Read `AGENTS.md`, `README.md`, `docs/architecture/MODULE_GRAPH.md`, `docs/architecture/TEAM_OWNERSHIP.md`, `docs/agent/CONTEXT.md`, and `docs/agent/EVALUATION.md`.
 2. Inspect `data/src/main/**`, `data/src/test/**`, `core/database/**`, and the relevant repository ports in `domain/src/main/**`.
-3. Identify the approved milestone. Do not add Room, file storage, PDF, networking, synchronization, or authentication merely because the proposal mentions it.
+3. Identify the existing capability and approved next milestone. Room, migrations, seeding, evidence storage, and fake synchronization already exist; extend them rather than recreating parallel foundations. Do not add real backend, worker, export, or authentication behavior merely because the proposal mentions it.
 4. Write a compact brief with Goal, Owner module, Allowed files, Required contract, Expected behavior, Verification, and Done when.
 5. Stop and request a contract decision when Data cannot implement the behavior through an existing Domain port.
 
@@ -41,9 +41,9 @@ Select only the task or smallest connected task set authorized by the current mi
 
 Done when the fake satisfies the current Domain contract and `:data` tests prove deterministic behavior.
 
-### Task 2 - Design Persistence Models
+### Task 2 - Evolve Persistence Models
 
-1. Derive storage needs from approved Domain behavior, not directly from UI state.
+1. Derive storage changes from approved Domain behavior, not directly from UI state.
 2. Define Room entities with stable keys, relationships, indexes, and explicit persisted status values.
 3. Keep entities separate from Domain models; do not add Room annotations to Domain.
 4. Decide transaction boundaries for aggregate writes such as inspection, answers, evidence metadata, and pending sync records.
@@ -51,10 +51,10 @@ Done when the fake satisfies the current Domain contract and `:data` tests prove
 
 Done when the schema supports the approved use cases without leaking database structure through repository ports.
 
-### Task 3 - Set Up Room and DAOs
+### Task 3 - Extend Room and DAOs
 
-1. Add Room only after the persistence milestone is approved.
-2. Place the database, entities, DAOs, converters, and migrations in `:core:database`.
+1. Keep existing Room types and migrations in `:core:database`.
+2. Add a versioned migration for every supported schema change.
 3. Expose observable reads as `Flow` and provide the minimum write operations required by repository implementations.
 4. Use database transactions for multi-table state changes that must be atomic.
 5. Test queries, relationships, replacement behavior, and transaction outcomes with an in-memory database.
@@ -145,7 +145,7 @@ Done when supported existing databases open successfully and retain expected rec
 
 1. Coordinate with the App owner before changing `:app`.
 2. Construct database, DAOs, adapters, and repository implementations in the composition root.
-3. Replace the fake binding only for the approved runtime mode; retain deterministic fake mode when required for demos/tests.
+3. The current app binds demo repositories. Replace or select that binding only through an approved runtime mode; retain deterministic fake mode when required for demos/tests.
 4. Keep feature constructors dependent on Domain ports or use cases, not concrete Data classes.
 5. Run full verification because app wiring crosses the integration boundary.
 

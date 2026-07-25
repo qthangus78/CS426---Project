@@ -42,7 +42,7 @@ Compose UI renders state and emits events. It should not call repositories, cons
 
 ## Domain Use Case Dependency
 
-Feature Presenters depend on Domain use cases. The Dashboard Presenter calls `ObserveInspectionSummariesUseCase`; it does not know whether the data comes from fake memory data, Room, files, or a future backend.
+Feature Presenters depend on Domain use cases. The Dashboard Presenter calls `ObserveInspectionSummariesUseCase`; it does not know whether the data comes from the current demo binding, Room, files, or a future backend.
 
 ## Navigation Responsibility
 
@@ -56,7 +56,7 @@ Feature modules depend inward on `:domain`; `:data` also depends inward on `:dom
 feature -> domain <- data
 ```
 
-Because features do not depend on `:data`, replacing `FakeInspectionRepository` with a future Room repository happens in `:app` composition without rewriting Dashboard or Reports presentation code.
+Because features do not depend on `:data`, wiring the implemented Room/Data foundation happens in `:app` composition without rewriting Dashboard or Inspection presentation code.
 
 ## Linh-Owned Presentation State
 
@@ -70,7 +70,9 @@ Dashboard currently renders:
 - loading, empty, content, and filtered-empty states;
 - a local About FieldFlow dialog.
 
-Reports currently renders an honest placeholder for future report capability. It shows no fake reports, no export progress, and no exporter or repository implementation. Future report generation requires Domain report contracts and Data/framework adapters before the screen can present real report history or export actions.
+Inspection currently renders an editable workflow with section navigation, answer and note updates, evidence references, draft saving, review, validation errors, and completion feedback. The current app binding persists this workflow in deterministic demo repositories.
+
+Reports renders an honest placeholder for report capability. It shows no fake reports or export progress. The Domain report contract exists, but report history and PDF/JSON exporter adapters are not implemented.
 
 ## Shared Presentation Components
 
@@ -84,4 +86,4 @@ Linh-owned presentation uses the spacing scale `4dp`, `8dp`, `12dp`, `16dp`, `20
 
 ## Future Settings
 
-Settings are not implemented in the Architecture Bootstrap. A future Settings feature would require new screen contracts, app navigation/composition work, and persistence ownership. Proposed scope is documented in [FUTURE_SETTINGS_SCOPE.md](FUTURE_SETTINGS_SCOPE.md).
+Settings are not implemented. A future Settings feature requires new screen contracts, app navigation/composition work, and persistence ownership. Proposed scope is documented in [FUTURE_SETTINGS_SCOPE.md](FUTURE_SETTINGS_SCOPE.md).

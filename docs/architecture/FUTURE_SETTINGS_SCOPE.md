@@ -2,7 +2,7 @@
 
 This document is future scope only. FieldFlow does not currently implement a Settings screen, Settings navigation, preference persistence, notification settings, synchronization settings, local-data reset, account profile, or theme toggle.
 
-Settings should be implemented only after the involved owners agree on contracts and module boundaries. The Architecture Bootstrap currently follows the system light or dark appearance automatically through `FieldFlowTheme`.
+Settings should be implemented only after the involved owners agree on contracts and module boundaries. The current app follows the system light or dark appearance automatically through `FieldFlowTheme`.
 
 ## Potential Future Settings
 
@@ -18,7 +18,7 @@ Settings should be implemented only after the involved owners agree on contracts
 
 ## Current Non-Goals
 
-- Do not create a Settings Gradle module during the Architecture Bootstrap.
+- Do not create a Settings Gradle module without an approved ownership and navigation decision.
 - Do not add a Settings `Screen` contract or navigation destination.
 - Do not add SharedPreferences, DataStore, or any other preference storage.
 - Do not add a theme toggle, notification preferences, synchronization preferences, account/profile settings, local-data reset, or fake setting values.

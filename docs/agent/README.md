@@ -1,4 +1,4 @@
-# Agent Environment (v0.2)
+# Agent Environment (v0.3)
 
 This folder is the operating kit for AI agents working on FieldFlow.
 
@@ -15,11 +15,12 @@ The kit keeps agent work scoped, reviewable, and consistent with the FieldFlow a
 - `SOURCES.md` - external sources for tools, evaluation, and the FieldFlow stack.
 - `../../scripts/agent/verify.ps1` - scope-aware local verification.
 
-## v0.2 Changes
+## v0.3 Changes
 
 - Clarifies that `AGENTS.md` should stay concise and durable.
 - Adds a source policy for official Codex, Android, Circuit, GitHub, and OpenAI references.
-- Separates current repo state from future proposal scope.
+- Treats the checked-in source as the current state and proposal documents as future-product context.
+- Records that Room/Data foundations are implemented but not wired by the current app composition root.
 - Makes sandbox, approval, and docs-only verification expectations explicit.
 
 ## Recommended Agent Roles

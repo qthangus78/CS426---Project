@@ -1,8 +1,8 @@
-# FieldFlow Data Schema (P0)
+# FieldFlow Data Schema
 
-Status: proposed persistence contract for Data review before Room implementation.
+Status: implemented Room schema, database version 2.
 
-This document defines the P0 local persistence model owned by `:core:database`. It does not change the current Domain contract and does not add Room dependencies. Room entities, DAOs, and migrations are implemented in Task 3 after the Domain contract and dependency change are approved.
+This document describes the local persistence model owned by `:core:database`. The executable source of truth is `FieldFlowDatabase`, its entities, DAOs, migrations, and exported schemas; this document records the intended storage and mapping boundaries. Room types remain private to `:core:database`, while `:data` maps them to Domain models.
 
 ## Design Rules
 

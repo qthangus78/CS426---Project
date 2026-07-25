@@ -1,163 +1,101 @@
 # FieldFlow
 
-FieldFlow is an Android inspection workflow project for asset and facility inspections. The current repository status is **Architecture Bootstrap**, not a finished product.
+FieldFlow is an Android inspection-workflow project for asset and facility inspections. The repository is a functional prototype: it contains a complete Domain workflow, a Circuit-based inspection UI, and an implemented Room/Data foundation. The app runtime still uses deterministic in-memory demo repositories while the Room-backed graph is integrated.
 
-Architecture name: **Circuit-Based Feature-Modular Clean Architecture**.
+Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
-Project proposal: [docs/FieldFlow_Project_Proposal.pdf](docs/FieldFlow_Project_Proposal.pdf)
+Project proposal: [docs/FieldFlow_Project_Proposal.pdf](docs/FieldFlow_Project_Proposal.pdf). The checked-in source and architecture docs, not the proposal, describe current implementation.
 
 ## Current State
 
 Implemented:
 
-- multi-module Android architecture;
-- pure Kotlin `:domain` bootstrap with inspection summary models, repository port, and observe use cases;
-- `:data` fake inspection repository with deterministic sample inspection summaries;
-- Slack Circuit application shell, typed screens, Presenter/UI factories, and manual composition root in `:app`;
-- polished Dashboard presentation with a derived continue-inspection hero, overview metrics, status filters, quick actions, and a local About FieldFlow dialog;
-- Dashboard-to-Inspection read-only vertical slice;
-- navigable placeholder boundaries for Assets, Templates, Issues, and Reports, with Reports presented as an honest future-milestone screen;
-- focused unit tests for Domain, Data, Dashboard Presenter, Inspection Presenter, and Reports Presenter;
-- Compose instrumentation smoke coverage for startup, Dashboard, Inspection, placeholder navigation, and Back.
+- multi-module Android architecture with `:app` as the composition root;
+- pure Kotlin `:domain` models, ports, validation, scoring, inspection lifecycle, draft, completion, issue, reporting, and scheduling use cases;
+- Slack Circuit screens, presenter/UI factories, Dashboard, and an editable Inspection workflow with draft save, validation, review, completion, notes, and evidence references;
+- Room database version 2 with exported schemas, explicit migration, DAOs, draft recovery and pending-sync tests;
+- Data-layer Room summary repository/mapping, sample-data seeder, Android-managed evidence storage, and deterministic fake remote-sync adapter;
+- deterministic `DemoInspectionRepository`, `DemoTemplateRepository`, and `DemoIssueRepository` used by the current app composition;
+- unit coverage for Domain, Data, Room database, Dashboard, Inspection, and Reports; plus Compose navigation smoke tests.
 
-Placeholder:
+Not yet integrated or implemented end-to-end:
 
-- Assets;
-- Templates;
-- Issues;
-- Reports export and report-history workflow;
-- full Inspection checklist workflow.
-
-Not implemented:
-
-- Settings screen, settings navigation, or persisted preferences;
-- Room database, DAOs, entities, migrations, and production local source of truth;
-- offline-first production persistence, draft recovery, and synchronization queue;
-- inspection validation, weighted scoring, evidence capture, and evidence storage;
-- maintenance issue lifecycle;
-- asset management and template editing;
-- PDF or JSON report exporter implementation;
-- backend integration or authentication.
+- wiring Room-backed repositories, database seeding, evidence storage, and sync into `FieldFlowCompositionRoot`;
+- complete Room implementations for every Domain port and real background/remote synchronization;
+- asset, template, and issue management UIs;
+- report history and PDF/JSON export adapters;
+- settings, authentication, and backend integration.
 
 ## Module Graph
 
 ```text
 :app
-  -> :data
-  -> :domain
-  -> :core:navigation
-  -> :core:designsystem
-  -> :feature:dashboard
-  -> :feature:inspection
-  -> :feature:assets
-  -> :feature:templates
-  -> :feature:issues
-  -> :feature:reports
+  -> :data, :domain, :core:database, :core:navigation, :core:designsystem
+  -> :feature:dashboard, :feature:inspection, :feature:assets
+  -> :feature:templates, :feature:issues, :feature:reports
 
 :feature:* -> :domain, :core:navigation, :core:designsystem
-:data      -> :domain
-:core:database has no app or feature dependency
+:data      -> :domain, :core:database
+:core:database -> Room Android APIs
+:core:testing -> :domain (test-only consumer dependency)
 :domain is pure Kotlin/JVM
-:core:testing is pure Kotlin/JVM and test-only from consumers
 ```
 
-Dependency rules:
+Feature modules must not depend on `:data` or `:core:database`. `:domain` must not import Android, Compose, Circuit, Room, app, feature, or data code. See [docs/architecture/MODULE_GRAPH.md](docs/architecture/MODULE_GRAPH.md) for the full boundary rules.
 
-- feature modules must not depend on `:data`;
-- feature modules must not import `FakeInspectionRepository`, DAOs, Room entities, file adapters, or report exporters;
-- `:domain` must not import Android, Compose, Circuit, Room, app, feature, or data code;
-- `:app` is the composition root and the only module that assembles concrete implementations.
-
-More detail: [docs/architecture/MODULE_GRAPH.md](docs/architecture/MODULE_GRAPH.md)
-
-## Working Flow
+## Runtime Flow
 
 ```text
-DashboardUi
--> DashboardPresenter
--> ObserveInspectionSummariesUseCase
--> InspectionRepository
--> FakeInspectionRepository
--> DashboardState
--> DashboardUi
--> Navigator
--> InspectionScreen
--> InspectionPresenter
--> ObserveInspectionUseCase
--> InspectionUi
-```
+DashboardUi -> DashboardPresenter -> ObserveInspectionSummariesUseCase
+    -> InspectionRepository -> DemoInspectionRepository (current app binding)
 
-The Dashboard shows deterministic fake inspection summaries and navigates to a read-only Inspection placeholder. Quick access routes open placeholder boundaries only; they do not claim asset, template, issue, or report functionality is complete.
+InspectionUi -> InspectionPresenter -> draft/validate/complete Domain use cases
+    -> DemoInspectionRepository + DemoTemplateRepository + DemoIssueRepository
+
+Room/Data foundation -> `:core:database` DAOs -> `:data` mappings/adapters
+    -> ready for composition-root integration
+```
 
 ## Build Prerequisites
 
-- JDK 21. The repository contains `gradle/gradle-daemon-jvm.properties` with `toolchainVersion=21`.
-- Android SDK with platform `android-36.1`.
+- JDK 21 (`gradle/gradle-daemon-jvm.properties` pins toolchain 21).
+- Android SDK platform `android-36.1`.
 - Gradle wrapper `9.4.1`.
-- AGP `9.2.1`, Kotlin `2.2.10`, Compose BOM `2026.02.01`.
-- Slack Circuit `0.33.1`, selected for compatibility with the current Kotlin toolchain.
-
-If Gradle cannot write to the user Gradle cache in a restricted environment, use a workspace-local cache:
-
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew projects --no-daemon
-```
+- AGP `9.2.1`, Kotlin `2.2.10`, Compose BOM `2026.02.01`, Room `2.8.4`, and Circuit `0.33.1`.
 
 ## Commands
 
-Project discovery:
+PowerShell:
 
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew projects --no-daemon
+```powershell
+.\gradlew.bat projects --no-daemon
+.\gradlew.bat :domain:test :data:testDebugUnitTest :feature:dashboard:testDebugUnitTest :feature:inspection:testDebugUnitTest :feature:reports:testDebugUnitTest --no-daemon
+.\gradlew.bat lintDebug test assembleDebug --no-daemon
+.\gradlew.bat connectedDebugAndroidTest --no-daemon
 ```
 
-Clean build:
+Use `scripts/agent/verify.ps1` to select the narrowest repository-approved check:
 
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew clean --no-daemon --stacktrace
-```
-
-Unit tests:
-
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew \
-  :domain:test \
-  :data:testDebugUnitTest \
-  :feature:dashboard:testDebugUnitTest \
-  :feature:inspection:testDebugUnitTest \
-  :feature:reports:testDebugUnitTest \
-  --no-daemon \
-  --stacktrace
-```
-
-Full local validation:
-
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew lintDebug test assembleDebug --no-daemon --stacktrace
-```
-
-Install and connected instrumentation tests:
-
-```bash
-env GRADLE_USER_HOME=.gradle ./gradlew :app:installDebug --no-daemon --stacktrace
-env GRADLE_USER_HOME=.gradle ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+```powershell
+.\scripts\agent\verify.ps1 -Path README.md docs\architecture\MODULE_GRAPH.md
+.\scripts\agent\verify.ps1 -Full
 ```
 
 ## Team Ownership
 
 | Module or area | Normal approver | Responsibility |
 | --- | --- | --- |
-| root Gradle, `:app`, `:core:navigation` | Thắng | Circuit foundation, composition root, integration |
-| `:feature:inspection` | Thắng | Inspection presentation slice |
-| `:domain` | Huy | Domain models, use cases, business rules, tests |
-| `:data`, `:core:database` | Lĩnh | Repositories, future Room, mappings, offline-first behavior |
-| `:feature:dashboard`, `:feature:reports`, `:core:designsystem`, README/docs/demo | Linh | Dashboard, Reports UI boundary, design system, documentation |
-| `:feature:assets`, `:feature:templates`, `:feature:issues` | Assigned later | Placeholder boundaries for future feature owners |
+| root Gradle, `:app`, `:core:navigation`, `:feature:inspection` | Thang | integration, Circuit foundation, composition root, inspection UI |
+| `:domain` | Huy | business contracts, validation, scoring, lifecycle, tests |
+| `:data`, `:core:database` | Linh | persistence, adapters, mappings, evidence, sync, database tests |
+| `:feature:dashboard`, `:feature:reports`, `:core:designsystem`, docs/demo | Linh | dashboard, reports boundary, design system, documentation |
+| `:feature:assets`, `:feature:templates`, `:feature:issues` | Assigned later | future feature UI boundaries |
 
-Detailed ownership rules: [docs/architecture/TEAM_OWNERSHIP.md](docs/architecture/TEAM_OWNERSHIP.md)
+Detailed ownership rules: [docs/architecture/TEAM_OWNERSHIP.md](docs/architecture/TEAM_OWNERSHIP.md).
 
-## Demo Docs
+## Related Docs
 
-- [docs/demo/DEMO_SCRIPT.md](docs/demo/DEMO_SCRIPT.md)
-- [docs/demo/MANUAL_TEST_CHECKLIST.md](docs/demo/MANUAL_TEST_CHECKLIST.md)
-- [docs/architecture/PRESENTATION_STRUCTURE.md](docs/architecture/PRESENTATION_STRUCTURE.md)
+- [Data schema](docs/architecture/DATA_SCHEMA.md)
+- [Presentation structure](docs/architecture/PRESENTATION_STRUCTURE.md)
+- [Demo script](docs/demo/DEMO_SCRIPT.md)
+- [Manual test checklist](docs/demo/MANUAL_TEST_CHECKLIST.md)

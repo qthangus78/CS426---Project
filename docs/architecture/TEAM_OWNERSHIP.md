@@ -45,7 +45,7 @@ Normally approves significant changes to:
 - `:domain`;
 - Domain-facing contracts used by repositories and presenters.
 
-### Lĩnh
+### Linh
 
 Owns:
 
@@ -62,9 +62,9 @@ Normally approves significant changes to:
 
 - `:data`;
 - `:core:database`;
-- future local persistence and storage adapters.
-
-Room and offline-first persistence are planned but not implemented in the Architecture Bootstrap.
+- local persistence and storage adapters;
+- Room schema, DAOs, migrations, and database tests;
+- Room/Data integration handoff to the App owner.
 
 ### Linh
 
@@ -99,6 +99,6 @@ Until owners are assigned, changes to these modules should be reviewed by Thắn
 - Work in separate feature branches.
 - Keep module boundaries intact.
 - Change shared contracts only through reviewed PRs.
-- Do not import `FakeInspectionRepository` outside `:app` or `:data` tests.
-- Do not add Room, file storage, PDF, networking, sync, or auth code until the owner milestone requires it.
+- Do not import demo repository implementations outside `:app` or their focused tests.
+- Keep Room, file storage, sync, and exporter adapters behind Domain ports and inside their owning outer-layer modules.
 - Integrate in `:app` after meaningful feature milestones, not after every tiny class.

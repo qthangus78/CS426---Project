@@ -1,28 +1,15 @@
 # Database Module
 
-`:core:database` is the future Android database boundary owned by Lĩnh.
+`:core:database` is the Android Room persistence boundary owned by Linh.
 
-Room and offline-first persistence are planned but not implemented in the Architecture Bootstrap.
+It currently contains:
 
-Future responsibilities:
+- `FieldFlowDatabase` version 2;
+- Room entities and DAOs for catalog, inspection, issue, evidence, and pending-sync data;
+- explicit, data-preserving migrations in `FieldFlowMigrations`;
+- exported schemas in `schemas/` and migration/database tests;
+- no dependency on `:app` or any feature module.
 
-- Room database;
-- DAOs;
-- entities;
-- migrations;
-- local source of truth;
-- draft recovery;
-- pending synchronization records.
+The schema source and mapping rules are documented in [docs/architecture/DATA_SCHEMA.md](../../docs/architecture/DATA_SCHEMA.md). Domain types and Room entities must remain separate; `:data` owns mapping between them.
 
-The proposed P0 persistence contract is documented in
-[`docs/architecture/DATA_SCHEMA.md`](../../docs/architecture/DATA_SCHEMA.md).
-Room entities and DAOs are intentionally deferred to the Room implementation
-milestone so the schema can be reviewed before it becomes a database API.
-## Schema migrations
-
-`FieldFlowDatabase` is currently at version 2. Production builders must register
-`FieldFlowMigrations.ALL`; destructive fallback is not enabled. Version 1 to 2 is an
-explicit, data-preserving baseline migration because the persistence schema was stabilized
-during version 1 development without a released structural change.
-
-Exported schemas live under `schemas/` and are included as test assets for migration validation.
+The app composition root does not yet open or wire this database at runtime. Do not add a feature dependency on this module to work around that pending integration.
