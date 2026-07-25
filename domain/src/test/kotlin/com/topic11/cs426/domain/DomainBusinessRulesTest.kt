@@ -1,5 +1,6 @@
 package com.topic11.cs426.domain
 
+import com.topic11.cs426.core.testing.FakeAssetRepository
 import com.topic11.cs426.core.testing.FakeIssueRepository
 import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
@@ -36,7 +37,7 @@ class DomainBusinessRulesTest {
             value = ChecklistAnswerValue.Pass,
         )
         val session = fixtures.createSampleSession(
-            answers = listOf(answer), // itemRequiredId is missing
+            answers = listOf(answer),
             status = InspectionStatus.IN_PROGRESS,
         )
         val template = fixtures.sampleTemplate
@@ -64,7 +65,7 @@ class DomainBusinessRulesTest {
         val answer = fixtures.createAnswer(
             itemId = fixtures.itemRequiredId,
             value = ChecklistAnswerValue.Fail,
-            evidenceIds = emptyList(), // No evidence attached
+            evidenceIds = emptyList(),
         )
         val session = fixtures.createSampleSession(
             answers = listOf(answer),
@@ -95,7 +96,7 @@ class DomainBusinessRulesTest {
         val answer = fixtures.createAnswer(
             itemId = fixtures.itemRequiredId,
             value = ChecklistAnswerValue.Fail,
-            evidenceIds = listOf(fixtures.evidenceId), // Has evidence
+            evidenceIds = listOf(fixtures.evidenceId),
         )
         val answer2 = fixtures.createAnswer(
             itemId = fixtures.itemCriticalId,
@@ -107,6 +108,8 @@ class DomainBusinessRulesTest {
         )
         val inspectionRepo = RecordingInspectionRepository()
         inspectionRepo.addSession(session)
+        val assetRepo = FakeAssetRepository()
+        assetRepo.addAsset(fixtures.sampleAsset)
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
@@ -119,6 +122,7 @@ class DomainBusinessRulesTest {
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
+            assetRepository = assetRepo,
             issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
@@ -143,10 +147,9 @@ class DomainBusinessRulesTest {
     @Test
     fun `notApplicableIsExcludedFromScore`() = runTest {
         // Arrange:
-        // - item1 (weight 5, required+critical): NotApplicable → skipped entirely
-        // - item2 (weight 5, required+critical): Pass → 5/5
-        // - item3 (weight 1, optional): Pass → 1/1
-        // Expected: earned=6, total=6 (item1 excluded from denominator)
+        // - item1 (weight 5, required+critical): NotApplicable -> skipped entirely
+        // - item2 (weight 5, required+critical): Pass -> 5/5
+        // - item3 (weight 1, optional): Pass -> 1/1
         val answer1 = fixtures.createAnswer(
             itemId = fixtures.itemRequiredId,
             value = ChecklistAnswerValue.NotApplicable,
@@ -185,6 +188,8 @@ class DomainBusinessRulesTest {
         )
         val inspectionRepo = RecordingInspectionRepository()
         inspectionRepo.addSession(session)
+        val assetRepo = FakeAssetRepository()
+        assetRepo.addAsset(fixtures.sampleAsset)
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
@@ -197,6 +202,7 @@ class DomainBusinessRulesTest {
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
+            assetRepository = assetRepo,
             issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
@@ -208,30 +214,30 @@ class DomainBusinessRulesTest {
         val result = completeUseCase(session.id)
 
         // Assert
-        assertTrue("Expected Error", result is CompleteInspectionResult.Error)
-        val error = result as CompleteInspectionResult.Error
-        assertTrue(error.message.contains("NOT_STARTED"))
+        assertTrue("Expected ValidationFailed", result is CompleteInspectionResult.ValidationFailed)
+        val validationFailed = result as CompleteInspectionResult.ValidationFailed
+        assertTrue(validationFailed.errors.any { it is InspectionValidationError.InvalidLifecycleTransition })
     }
 
     // ─────────────────────────────────────────────
     // TEST 6: reportRequiresCompletedInspection
     // RULE 7: Report can only be generated after validation + complete
-    // (Tests that CompleteInspectionUseCase validates before completing)
     // ─────────────────────────────────────────────
     @Test
     fun `reportRequiresCompletedInspection`() = runTest {
-        // Arrange: session has required unanswered → validation will fail
+        // Arrange: session has required unanswered -> validation will fail
         val answer = fixtures.createAnswer(
             itemId = fixtures.itemCriticalId,
             value = ChecklistAnswerValue.Pass,
         )
-        // itemRequiredId is unanswered → validation fails
         val session = fixtures.createSampleSession(
             answers = listOf(answer),
             status = InspectionStatus.REVIEWING,
         )
         val inspectionRepo = RecordingInspectionRepository()
         inspectionRepo.addSession(session)
+        val assetRepo = FakeAssetRepository()
+        assetRepo.addAsset(fixtures.sampleAsset)
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
@@ -244,6 +250,7 @@ class DomainBusinessRulesTest {
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
+            assetRepository = assetRepo,
             issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
@@ -254,8 +261,7 @@ class DomainBusinessRulesTest {
         // Act
         val result = completeUseCase(session.id)
 
-        // Assert
-        // Because validation fails → returns ValidationFailed, not Success
+        // Assert validation fails -> returns ValidationFailed, not Success
         assertTrue("Expected ValidationFailed", result is CompleteInspectionResult.ValidationFailed)
     }
 
@@ -265,29 +271,37 @@ class DomainBusinessRulesTest {
     // ─────────────────────────────────────────────
     @Test
     fun `nextInspectionDateUsesRecurrencePolicy`() = runTest {
-        // Arrange
         val scheduleUseCase = ScheduleNextInspectionUseCase()
-        val template = fixtures.sampleTemplate // recurrencePolicyDays = 365
+        val template = fixtures.sampleTemplate
+        val asset = fixtures.sampleAsset // no asset-level policy
         val completedAt = 1000L
 
-        // Act
-        val nextDue = scheduleUseCase(template, completedAt)
+        val nextDue = scheduleUseCase(template, asset, completedAt)
 
-        // Assert
         assertEquals(1000L + 365 * 86_400_000L, nextDue)
     }
 
     @Test
     fun `nextInspectionDateIsNullWhenNoRecurrencePolicy`() = runTest {
-        // Arrange
         val scheduleUseCase = ScheduleNextInspectionUseCase()
         val template = fixtures.templateWithNoRecurrence
+        val asset = fixtures.sampleAssetWithPolicy // asset has 180-day policy as fallback
         val completedAt = 1000L
 
-        // Act
-        val nextDue = scheduleUseCase(template, completedAt)
+        val nextDue = scheduleUseCase(template, asset, completedAt)
 
-        // Assert
+        assertEquals(1000L + 180 * 86_400_000L, nextDue)
+    }
+
+    @Test
+    fun `nextInspectionDateIsNullWhenNoPolicyOnTemplateOrAsset`() = runTest {
+        val scheduleUseCase = ScheduleNextInspectionUseCase()
+        val template = fixtures.templateWithNoRecurrence
+        val asset = fixtures.sampleAsset // no asset policy either
+        val completedAt = 1000L
+
+        val nextDue = scheduleUseCase(template, asset, completedAt)
+
         assertEquals(null, nextDue)
     }
 }

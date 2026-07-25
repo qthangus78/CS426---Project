@@ -1,5 +1,6 @@
 package com.topic11.cs426.core.testing
 
+import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.ChecklistAnswerType
 import com.topic11.cs426.domain.model.ChecklistAnswerValue
@@ -115,12 +116,26 @@ object InspectionTestFixtures {
         recurrencePolicyDays = null,
     )
 
+    // ── Asset fixtures ──
+    val sampleAsset = Asset(
+        id = asset1Id,
+        name = "Computer Lab I.44",
+        code = "LAB-044",
+        recurrencePolicyDays = null,
+        nextInspectionDueAtMillis = null,
+    )
+
+    val sampleAssetWithPolicy = sampleAsset.copy(
+        recurrencePolicyDays = 180,
+    )
+
     // ── Session fixtures ──
     fun createSampleSession(
         id: InspectionId = computerLab.id,
         assetId: AssetId = asset1Id,
         assetName: String = "Computer Lab I.44",
         templateId: TemplateId = InspectionTestFixtures.templateId,
+        templateName: String = "Lab Safety Checklist",
         status: InspectionStatus = InspectionStatus.IN_PROGRESS,
         answers: List<InspectionAnswer> = emptyList(),
     ): InspectionSession {
@@ -129,6 +144,7 @@ object InspectionTestFixtures {
             assetId = assetId,
             assetName = assetName,
             templateId = templateId,
+            templateName = templateName,
             status = status,
             currentSectionId = section1Id,
             answers = answers,

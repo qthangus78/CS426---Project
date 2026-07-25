@@ -5,6 +5,7 @@ import com.topic11.cs426.domain.model.IssueSeverity
 import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.model.MaintenanceIssueStatus
 import com.topic11.cs426.domain.repository.IssueRepository
+import java.util.UUID
 
 class CreateMaintenanceIssueUseCase(
     private val issueRepository: IssueRepository,
@@ -12,9 +13,10 @@ class CreateMaintenanceIssueUseCase(
     suspend operator fun invoke(
         failures: List<CriticalFailure>,
     ): List<MaintenanceIssue> {
+        val now = System.currentTimeMillis()
         val issues = failures.map { failure ->
             MaintenanceIssue(
-                id = IssueId("issue-${System.currentTimeMillis()}-${failures.indexOf(failure)}"),
+                id = IssueId(UUID.randomUUID().toString()),
                 inspectionId = failure.inspectionId,
                 assetId = failure.assetId,
                 checklistItemId = failure.checklistItemId,
@@ -22,13 +24,13 @@ class CreateMaintenanceIssueUseCase(
                 title = failure.title,
                 description = failure.description,
                 status = MaintenanceIssueStatus.OPEN,
-                createdAtMillis = System.currentTimeMillis(),
+                createdAtMillis = now,
             )
         }
 
         return issues.map { issue ->
             issueRepository.createIssue(issue)
-            issue.copy(id = issue.id)
+            issue
         }
     }
 }
