@@ -18,6 +18,13 @@ fun InspectionSummaryRecord.toDomain(): InspectionSummary {
 }
 
 private fun InspectionSummaryRecord.toDomainStatus(): InspectionStatus {
+    return toDomainInspectionStatus(lifecycleStatus, syncStatus)
+}
+
+internal fun toDomainInspectionStatus(
+    lifecycleStatus: String,
+    syncStatus: String,
+): InspectionStatus {
     return when (lifecycleStatus) {
         LIFECYCLE_NOT_STARTED -> InspectionStatus.NOT_STARTED
         LIFECYCLE_IN_PROGRESS,

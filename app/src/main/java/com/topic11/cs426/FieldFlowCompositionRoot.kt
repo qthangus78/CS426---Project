@@ -2,6 +2,7 @@ package com.topic11.cs426
 
 import android.content.Context
 import com.slack.circuit.foundation.Circuit
+import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
 import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
@@ -10,6 +11,7 @@ import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
+import com.topic11.cs426.domain.usecase.ObserveTemplateUseCase
 import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
 import com.topic11.cs426.domain.usecase.ScheduleNextInspectionUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
@@ -48,11 +50,13 @@ class FieldFlowCompositionRoot private constructor(
             val inspectionRepository = DemoInspectionRepository()
             val templateRepository = DemoTemplateRepository()
             val issueRepository = DemoIssueRepository()
+            val assetRepository = DemoAssetRepository()
 
             return createWithRepositories(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
                 issueRepository = issueRepository,
+                assetRepository = assetRepository,
             )
         }
 
@@ -60,15 +64,18 @@ class FieldFlowCompositionRoot private constructor(
             inspectionRepository: InspectionRepository,
             templateRepository: TemplateRepository,
             issueRepository: IssueRepository,
+            assetRepository: AssetRepository,
         ): FieldFlowCompositionRoot {
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
             val observeInspection = ObserveInspectionUseCase(inspectionRepository)
+            val observeTemplate = ObserveTemplateUseCase(templateRepository)
             val saveInspectionDraft = SaveInspectionDraftUseCase(inspectionRepository)
             val validateInspection = ValidateInspectionUseCase()
 
             val completeInspection = CompleteInspectionUseCase(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
+                assetRepository = assetRepository,
                 issueRepository = issueRepository,
                 validateInspection = validateInspection,
                 calculateScore = CalculateInspectionScoreUseCase(),
@@ -81,7 +88,7 @@ class FieldFlowCompositionRoot private constructor(
                 .addPresenterFactory(
                     InspectionPresenterFactory(
                         observeInspection = observeInspection,
-                        templateRepository = templateRepository,
+                        observeTemplate = observeTemplate,
                         saveInspectionDraft = saveInspectionDraft,
                         validateInspection = validateInspection,
                         completeInspection = completeInspection,

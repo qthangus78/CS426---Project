@@ -1,6 +1,7 @@
 package com.topic11.cs426.data
 
 import com.topic11.cs426.core.database.dao.InspectionDao
+import com.topic11.cs426.core.database.dao.InspectionSessionRecord
 import com.topic11.cs426.core.database.dao.InspectionSummaryRecord
 import com.topic11.cs426.core.database.entity.EvidenceEntity
 import com.topic11.cs426.core.database.entity.InspectionAnswerEntity
@@ -14,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -74,7 +76,8 @@ class RoomInspectionRepositoryTest {
 
         val result = repository.observeInspection(InspectionId("inspection-lab")).first()
 
-        assertEquals("Computer Lab I.44", result?.title)
+        assertEquals("Computer Lab I.44", result?.assetName)
+        assertEquals("Standard Inspection", result?.templateName)
         assertEquals(InspectionStatus.SYNC_PENDING, result?.status)
     }
 
@@ -169,6 +172,7 @@ private class ControlledInspectionDao(
     initialRecords: List<InspectionSummaryRecord>,
 ) : InspectionDao {
     private val records = MutableStateFlow(initialRecords)
+    private val sessionRecords = MutableStateFlow(initialRecords.map(InspectionSummaryRecord::toSessionRecord))
 
     override suspend fun getInspectionCount(): Int = records.value.size
 
@@ -182,6 +186,20 @@ private class ControlledInspectionDao(
         }
     }
 
+    override fun observeInspectionSession(inspectionId: String): Flow<InspectionSessionRecord?> {
+        return sessionRecords.map { sessions ->
+            sessions.firstOrNull { it.inspectionId == inspectionId }
+        }
+    }
+
+    override suspend fun getInspectionSession(inspectionId: String): InspectionSessionRecord? {
+        return sessionRecords.value.firstOrNull { it.inspectionId == inspectionId }
+    }
+
+    override suspend fun getLatestTemplateRevisionId(templateId: String): String? {
+        return "template-standard-v1"
+    }
+
     override fun observeInspections(): Flow<List<InspectionEntity>> = unused()
 
     override fun observeInspection(inspectionId: String): Flow<InspectionEntity?> = unused()
@@ -190,15 +208,15 @@ private class ControlledInspectionDao(
 
     override suspend fun getAnswers(
         inspectionId: String,
-    ): List<InspectionAnswerEntity> = unused()
+    ): List<InspectionAnswerEntity> = emptyList()
 
-    override suspend fun getEvidence(inspectionId: String): List<EvidenceEntity> = unused()
+    override suspend fun getEvidence(inspectionId: String): List<EvidenceEntity> = emptyList()
 
     override fun observeAnswers(
         inspectionId: String,
-    ): Flow<List<InspectionAnswerEntity>> = unused()
+    ): Flow<List<InspectionAnswerEntity>> = flowOf(emptyList())
 
-    override fun observeEvidence(inspectionId: String): Flow<List<EvidenceEntity>> = unused()
+    override fun observeEvidence(inspectionId: String): Flow<List<EvidenceEntity>> = flowOf(emptyList())
 
     override suspend fun upsertInspection(inspection: InspectionEntity): Unit = unused()
 
@@ -212,7 +230,24 @@ private class ControlledInspectionDao(
 
     fun replaceRecords(updatedRecords: List<InspectionSummaryRecord>) {
         records.value = updatedRecords
+        sessionRecords.value = updatedRecords.map(InspectionSummaryRecord::toSessionRecord)
     }
 
     private fun unused(): Nothing = error("DAO operation is outside this repository test")
 }
+
+private fun InspectionSummaryRecord.toSessionRecord() = InspectionSessionRecord(
+    inspectionId = inspectionId,
+    assetId = "asset-$inspectionId",
+    assetName = title,
+    templateId = "template-standard",
+    templateName = "Standard Inspection",
+    lifecycleStatus = lifecycleStatus,
+    syncStatus = syncStatus,
+    currentSectionId = null,
+    startedAtMillis = 0L,
+    updatedAtMillis = 0L,
+    completedAtMillis = if (lifecycleStatus == "COMPLETED") 1L else null,
+    earnedWeight = null,
+    totalWeight = null,
+)

@@ -23,9 +23,9 @@ import com.topic11.cs426.domain.model.InspectionSession
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionValidationError
 import com.topic11.cs426.domain.model.SectionId
-import com.topic11.cs426.domain.repository.TemplateRepository
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
+import com.topic11.cs426.domain.usecase.ObserveTemplateUseCase
 import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
 import kotlinx.coroutines.CancellationException
@@ -40,7 +40,7 @@ internal class InspectionPresenter(
     private val screen: InspectionScreen,
     private val navigator: Navigator,
     private val observeInspection: ObserveInspectionUseCase,
-    private val templateRepository: TemplateRepository,
+    private val observeTemplate: ObserveTemplateUseCase,
     private val saveInspectionDraft: SaveInspectionDraftUseCase,
     private val validateInspection: ValidateInspectionUseCase,
     private val completeInspection: CompleteInspectionUseCase,
@@ -62,7 +62,7 @@ internal class InspectionPresenter(
                     if (session == null) {
                         flowOf(null to null)
                     } else {
-                        templateRepository.observeTemplate(session.templateId)
+                        observeTemplate(session.templateId)
                             .map { template -> session to template }
                     }
                 }

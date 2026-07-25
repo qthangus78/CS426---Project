@@ -1,6 +1,8 @@
 package com.topic11.cs426
 
+import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
+import com.topic11.cs426.domain.model.AssetSummary
 import com.topic11.cs426.domain.model.ChecklistAnswerType
 import com.topic11.cs426.domain.model.ChecklistItem
 import com.topic11.cs426.domain.model.ChecklistItemId
@@ -16,6 +18,7 @@ import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
 import com.topic11.cs426.domain.model.IssueId
 import com.topic11.cs426.domain.model.MaintenanceIssue
+import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
 import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
@@ -86,6 +89,7 @@ private val demoSessions = listOf(
         assetId = AssetId("asset-lab-1"),
         assetName = "Computer Lab I.44",
         templateId = DEMO_TEMPLATE_ID,
+        templateName = "Standard Inspection",
         status = InspectionStatus.IN_PROGRESS,
         answers = emptyList(),
         startedAtMillis = 0L,
@@ -96,6 +100,7 @@ private val demoSessions = listOf(
         assetId = AssetId("asset-proj-1"),
         assetName = "Projector P-204",
         templateId = DEMO_TEMPLATE_ID,
+        templateName = "Standard Inspection",
         status = InspectionStatus.NOT_STARTED,
         answers = emptyList(),
         startedAtMillis = 0L,
@@ -106,12 +111,69 @@ private val demoSessions = listOf(
         assetId = AssetId("asset-lab-2"),
         assetName = "Laboratory A2 Safety Check",
         templateId = DEMO_TEMPLATE_ID,
+        templateName = "Standard Inspection",
         status = InspectionStatus.SYNC_PENDING,
         answers = emptyList(),
         startedAtMillis = 0L,
         updatedAtMillis = 0L,
     ),
 )
+
+private val demoAssets = listOf(
+    Asset(
+        id = AssetId("asset-lab-1"),
+        name = "Computer Lab I.44",
+        code = "LAB-I44",
+        recurrencePolicyDays = 90,
+    ),
+    Asset(
+        id = AssetId("asset-proj-1"),
+        name = "Projector P-204",
+        code = "PROJ-P204",
+        recurrencePolicyDays = 120,
+    ),
+    Asset(
+        id = AssetId("asset-lab-2"),
+        name = "Laboratory A2 Safety Check",
+        code = "LAB-A2",
+        recurrencePolicyDays = 60,
+    ),
+)
+
+// ── DemoAssetRepository ──────────────────────────────────────────────────────
+
+/**
+ * Provides demo [Asset] data for complete-inspection scheduling while the real
+ * Room implementation is not yet wired.
+ */
+internal class DemoAssetRepository : AssetRepository {
+    private val assets = MutableStateFlow(demoAssets)
+
+    override fun observeAssets(): Flow<List<AssetSummary>> =
+        assets.map { list ->
+            list.map { asset ->
+                AssetSummary(
+                    id = asset.id,
+                    name = asset.name,
+                    code = asset.code,
+                    nextInspectionDueAtMillis = asset.nextInspectionDueAtMillis,
+                )
+            }
+        }
+
+    override suspend fun getAsset(id: AssetId): Asset? =
+        assets.value.firstOrNull { it.id == id }
+
+    override suspend fun saveAsset(asset: Asset) {
+        assets.update { list ->
+            if (list.any { it.id == asset.id }) {
+                list.map { if (it.id == asset.id) asset else it }
+            } else {
+                list + asset
+            }
+        }
+    }
+}
 
 // ── DemoInspectionRepository ──────────────────────────────────────────────────
 

@@ -56,6 +56,7 @@ class FakeInspectionRepository : InspectionRepository {
             assetId = AssetId(assetId),
             assetName = assetName,
             templateId = TemplateId(templateId),
+            templateName = "Inspection Template",
             status = InspectionStatus.NOT_STARTED,
             startedAtMillis = startedAtMillis,
             updatedAtMillis = startedAtMillis,
@@ -90,6 +91,7 @@ class FakeInspectionRepository : InspectionRepository {
                 assetId = AssetId("asset-lab-1"),
                 assetName = "Computer Lab I.44",
                 templateId = TemplateId("template-standard"),
+                templateName = "Standard Inspection",
                 status = InspectionStatus.IN_PROGRESS,
                 answers = List(10) { i ->
                     InspectionAnswer(
@@ -107,6 +109,7 @@ class FakeInspectionRepository : InspectionRepository {
                 assetId = AssetId("asset-proj-1"),
                 assetName = "Projector P-204",
                 templateId = TemplateId("template-standard"),
+                templateName = "Standard Inspection",
                 status = InspectionStatus.NOT_STARTED,
                 answers = emptyList(), // totalItems will be forced to 8 in summary
                 startedAtMillis = 0L,
@@ -117,6 +120,7 @@ class FakeInspectionRepository : InspectionRepository {
                 assetId = AssetId("asset-lab-2"),
                 assetName = "Laboratory A2 Safety Check",
                 templateId = TemplateId("template-standard"),
+                templateName = "Standard Inspection",
                 status = InspectionStatus.SYNC_PENDING,
                 answers = List(12) { i ->
                     InspectionAnswer(

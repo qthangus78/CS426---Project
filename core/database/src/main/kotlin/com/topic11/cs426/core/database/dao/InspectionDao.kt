@@ -75,6 +75,66 @@ interface InspectionDao {
     )
     fun observeInspectionSummary(inspectionId: String): Flow<InspectionSummaryRecord?>
 
+    @Query(
+        """
+        SELECT
+            inspections.id AS inspectionId,
+            inspections.asset_id AS assetId,
+            assets.name AS assetName,
+            inspection_templates.template_id AS templateId,
+            inspection_templates.name AS templateName,
+            inspections.lifecycle_status AS lifecycleStatus,
+            inspections.sync_status AS syncStatus,
+            inspections.current_section_id AS currentSectionId,
+            inspections.started_at_ms AS startedAtMillis,
+            inspections.updated_at_ms AS updatedAtMillis,
+            inspections.completed_at_ms AS completedAtMillis,
+            inspections.earned_weight AS earnedWeight,
+            inspections.total_weight AS totalWeight
+        FROM inspections
+        INNER JOIN assets ON assets.id = inspections.asset_id
+        INNER JOIN inspection_templates
+            ON inspection_templates.revision_id = inspections.template_revision_id
+        WHERE inspections.id = :inspectionId
+        """,
+    )
+    fun observeInspectionSession(inspectionId: String): Flow<InspectionSessionRecord?>
+
+    @Query(
+        """
+        SELECT
+            inspections.id AS inspectionId,
+            inspections.asset_id AS assetId,
+            assets.name AS assetName,
+            inspection_templates.template_id AS templateId,
+            inspection_templates.name AS templateName,
+            inspections.lifecycle_status AS lifecycleStatus,
+            inspections.sync_status AS syncStatus,
+            inspections.current_section_id AS currentSectionId,
+            inspections.started_at_ms AS startedAtMillis,
+            inspections.updated_at_ms AS updatedAtMillis,
+            inspections.completed_at_ms AS completedAtMillis,
+            inspections.earned_weight AS earnedWeight,
+            inspections.total_weight AS totalWeight
+        FROM inspections
+        INNER JOIN assets ON assets.id = inspections.asset_id
+        INNER JOIN inspection_templates
+            ON inspection_templates.revision_id = inspections.template_revision_id
+        WHERE inspections.id = :inspectionId
+        """,
+    )
+    suspend fun getInspectionSession(inspectionId: String): InspectionSessionRecord?
+
+    @Query(
+        """
+        SELECT revision_id FROM inspection_templates
+        WHERE template_id = :templateId
+        ORDER BY version DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getLatestTemplateRevisionId(templateId: String): String?
+
     @Query("SELECT * FROM inspections ORDER BY updated_at_ms DESC, id")
     fun observeInspections(): Flow<List<InspectionEntity>>
 

@@ -5,6 +5,8 @@ import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.test
 import com.topic11.cs426.core.navigation.DashboardScreen
 import com.topic11.cs426.core.navigation.InspectionScreen
+import com.topic11.cs426.core.testing.FakeAssetRepository
+import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.ChecklistAnswerType
 import com.topic11.cs426.domain.model.ChecklistAnswerValue
@@ -30,6 +32,7 @@ import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
+import com.topic11.cs426.domain.usecase.ObserveTemplateUseCase
 import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
 import com.topic11.cs426.domain.usecase.ScheduleNextInspectionUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
@@ -56,16 +59,25 @@ class InspectionPresenterTest {
         issueRepository: FakeIssueRepository = FakeIssueRepository(),
     ): InspectionPresenter {
         val fakeTemplateRepo = FakeTemplateRepository()
+        val fakeAssetRepo = FakeAssetRepository().apply {
+            addAsset(
+                Asset(
+                    id = initialSession.assetId,
+                    name = initialSession.assetName,
+                ),
+            )
+        }
         return InspectionPresenter(
             screen = screen,
             navigator = navigator,
             observeInspection = ObserveInspectionUseCase(inspectionRepository),
-            templateRepository = fakeTemplateRepo,
+            observeTemplate = ObserveTemplateUseCase(fakeTemplateRepo),
             saveInspectionDraft = SaveInspectionDraftUseCase(inspectionRepository),
             validateInspection = ValidateInspectionUseCase(),
             completeInspection = CompleteInspectionUseCase(
                 inspectionRepository = inspectionRepository,
                 templateRepository = fakeTemplateRepo,
+                assetRepository = fakeAssetRepo,
                 issueRepository = issueRepository,
                 validateInspection = ValidateInspectionUseCase(),
                 calculateScore = CalculateInspectionScoreUseCase(),
@@ -81,6 +93,12 @@ class InspectionPresenterTest {
         var state = awaitItem()
         while (state is InspectionState.Loading) state = awaitItem()
         return state as InspectionState.Editing
+    }
+
+    private suspend inline fun <reified T : InspectionState> ReceiveTurbine<InspectionState>.awaitState(): T {
+        var state = awaitItem()
+        while (state !is T) state = awaitItem()
+        return state
     }
 
     // ── Loading state ──────────────────────────────────────────────────────────
@@ -337,6 +355,35 @@ class InspectionPresenterTest {
         }
     }
 
+    @Test
+    fun `ReviewSelected keeps REVIEWING as UI-only without saving draft`() = runTest {
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(inspectionRepository = inspectionRepository).test {
+            var editing = awaitEditing()
+            val firstItem = editing.sections.first().items.first()
+
+            editing.eventSink(InspectionEvent.AnswerChanged(firstItem.id, ChecklistAnswerUi.Compliance(true)))
+            editing = awaitItem() as InspectionState.Editing
+            editing.eventSink(InspectionEvent.ReviewSelected)
+
+            val reviewing = awaitItem() as InspectionState.Reviewing
+            assertEquals(0, inspectionRepository.saveDraftAttempts)
+            assertEquals(InspectionStatus.IN_PROGRESS, inspectionRepository.savedSession.status)
+            assertTrue(inspectionRepository.savedSession.answers.isEmpty())
+
+            reviewing.eventSink(InspectionEvent.BackSelected)
+
+            val backToEditing = awaitItem() as InspectionState.Editing
+            assertEquals(
+                ChecklistAnswerUi.Compliance(true),
+                backToEditing.sections.first().items.first().answer,
+            )
+            assertEquals(InspectionStatus.IN_PROGRESS, inspectionRepository.savedSession.status)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── CompleteSelected — validation failure ──────────────────────────────────
 
     @Test
@@ -486,6 +533,69 @@ class InspectionPresenterTest {
     }
 
     @Test
+    fun `fake graph saves reviews validates completes and returns to dashboard`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(
+            navigator = navigator,
+            inspectionRepository = inspectionRepository,
+        ).test {
+            var state = awaitEditing()
+            val firstItem = state.sections.first().items.first()
+
+            state.eventSink(InspectionEvent.AnswerChanged(firstItem.id, ChecklistAnswerUi.Compliance(true)))
+            state = awaitState()
+            state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Checked during walkthrough"))
+            state = awaitState()
+            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-power-1"))
+            state = awaitState()
+
+            state.eventSink(InspectionEvent.SaveDraftSelected)
+            advanceUntilIdle()
+
+            val savedFirstAnswer = inspectionRepository.savedSession.answers.single {
+                it.checklistItemId == ChecklistItemId(firstItem.id)
+            }
+            assertEquals(ChecklistAnswerValue.Pass, savedFirstAnswer.value)
+            assertEquals("Checked during walkthrough", savedFirstAnswer.note)
+            assertEquals(listOf(EvidenceId("photo-power-1")), savedFirstAnswer.evidenceIds)
+            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertEquals(InspectionStatus.IN_PROGRESS, inspectionRepository.savedSession.status)
+
+            state.eventSink(InspectionEvent.ReviewSelected)
+            val firstReview = awaitState<InspectionState.Reviewing>()
+            firstReview.eventSink(InspectionEvent.CompleteSelected)
+
+            val failed = awaitState<InspectionState.ValidationFailed>()
+            assertTrue(failed.errors.isNotEmpty())
+
+            failed.eventSink(InspectionEvent.BackSelected)
+            state = awaitState()
+
+            state.sections
+                .flatMap { it.items }
+                .filter { item -> item.required && item.answer is ChecklistAnswerUi.Unanswered }
+                .forEach { item ->
+                    state.eventSink(InspectionEvent.AnswerChanged(item.id, ChecklistAnswerUi.Compliance(true)))
+                    state = awaitState()
+                }
+
+            state.eventSink(InspectionEvent.ReviewSelected)
+            val secondReview = awaitState<InspectionState.Reviewing>()
+            secondReview.eventSink(InspectionEvent.CompleteSelected)
+
+            val completed = awaitState<InspectionState.Completed>()
+            assertEquals(InspectionStatus.COMPLETED, inspectionRepository.savedSession.status)
+
+            completed.eventSink(InspectionEvent.BackSelected)
+
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `CompleteSelected stays in review and shows an error when saving fails`() = runTest {
         val inspectionRepository = FakeInspectionRepository.create()
 
@@ -509,10 +619,10 @@ class InspectionPresenterTest {
 
     @Test
     fun `CompleteSelected keeps the saved draft when domain completion fails`() = runTest {
-        val inspectionRepository = FakeInspectionRepository.create()
         val notStartedSession = FakeInspectionRepository.createSession().copy(
             status = InspectionStatus.NOT_STARTED,
         )
+        val inspectionRepository = FakeInspectionRepository(notStartedSession)
 
         presenter(
             initialSession = notStartedSession,
@@ -528,9 +638,10 @@ class InspectionPresenterTest {
             val reviewing = awaitItem() as InspectionState.Reviewing
             reviewing.eventSink(InspectionEvent.CompleteSelected)
 
-            val failed = awaitItem() as InspectionState.Reviewing
-            assertTrue("Expected domain error message", failed.saveError?.contains("NOT_STARTED") == true)
+            val failed = awaitState<InspectionState.ValidationFailed>()
+            assertTrue("Expected domain error message", failed.errors.any { it.message.contains("NOT_STARTED") })
             assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertEquals(InspectionStatus.NOT_STARTED, inspectionRepository.savedSession.status)
             assertEquals(
                 FakeSession.sections.flatMap { it.items }.count { it.required },
                 inspectionRepository.savedSession.answers.count { it.value != null },
@@ -785,6 +896,7 @@ private class FakeInspectionRepository(
             assetId = AssetId("asset-lab-1"),
             assetName = "Computer Lab I.44",
             templateId = TemplateId("template-standard"),
+            templateName = "Standard Inspection",
             status = InspectionStatus.IN_PROGRESS,
             answers = emptyList(),
             startedAtMillis = 0L,
