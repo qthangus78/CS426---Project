@@ -9,4 +9,6 @@ interface AssetRepository {
     fun observeAssets(): Flow<List<AssetSummary>>
 
     suspend fun getAsset(id: AssetId): Asset?
+
+    suspend fun saveAsset(asset: Asset)
 }

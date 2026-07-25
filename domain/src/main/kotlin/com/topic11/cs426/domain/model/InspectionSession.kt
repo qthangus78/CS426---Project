@@ -5,6 +5,7 @@ data class InspectionSession(
     val assetId: AssetId,
     val assetName: String,
     val templateId: TemplateId,
+    val templateName: String,
     val status: InspectionStatus,
     val currentSectionId: SectionId? = null,
     val answers: List<InspectionAnswer> = emptyList(),
@@ -15,6 +16,7 @@ data class InspectionSession(
 ) {
     init {
         require(assetName.isNotBlank()) { "Asset name cannot be blank." }
+        require(templateName.isNotBlank()) { "Template name cannot be blank." }
         if (status == InspectionStatus.COMPLETED) {
             require(completedAtMillis != null) {
                 "Completed inspection must have completedAtMillis."
@@ -23,7 +25,7 @@ data class InspectionSession(
     }
 
     /**
-     * Progress as a fraction [0..1], based on answered vs total required items.
+     * Progress as a fraction [0..1], based on answered vs total items in the session.
      */
     val progressFraction: Float
         get() {

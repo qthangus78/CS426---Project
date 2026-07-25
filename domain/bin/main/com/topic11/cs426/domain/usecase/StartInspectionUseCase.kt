@@ -37,6 +37,7 @@ class StartInspectionUseCase(
             assetId = assetId,
             assetName = assetName,
             templateId = templateId,
+            templateName = template.name,
             status = InspectionStatus.IN_PROGRESS,
             currentSectionId = firstSectionId,
             answers = emptyList(),

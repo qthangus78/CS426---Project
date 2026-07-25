@@ -1,9 +1,14 @@
 package com.topic11.cs426.domain.usecase
 
+import com.topic11.cs426.domain.model.ChecklistAnswerValue
 import com.topic11.cs426.domain.model.CompleteInspectionResult
 import com.topic11.cs426.domain.model.CompletedInspection
 import com.topic11.cs426.domain.model.InspectionId
+import com.topic11.cs426.domain.model.InspectionSession
 import com.topic11.cs426.domain.model.InspectionStatus
+import com.topic11.cs426.domain.model.InspectionTemplate
+import com.topic11.cs426.domain.model.InspectionValidationError
+import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
 import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
@@ -11,6 +16,7 @@ import com.topic11.cs426.domain.repository.TemplateRepository
 class CompleteInspectionUseCase(
     private val inspectionRepository: InspectionRepository,
     private val templateRepository: TemplateRepository,
+    private val assetRepository: AssetRepository,
     private val issueRepository: IssueRepository,
     private val validateInspection: ValidateInspectionUseCase,
     private val calculateScore: CalculateInspectionScoreUseCase,
@@ -29,14 +35,20 @@ class CompleteInspectionUseCase(
         val template = templateRepository.getTemplate(session.templateId)
             ?: return CompleteInspectionResult.Error("Template not found")
 
+        // Get asset
+        val asset = assetRepository.getAsset(session.assetId)
+            ?: return CompleteInspectionResult.Error("Asset not found")
+
         // RULE 4: Lifecycle — only REVIEWING or IN_PROGRESS can be completed
         if (session.status != InspectionStatus.REVIEWING &&
             session.status != InspectionStatus.IN_PROGRESS
         ) {
-            return CompleteInspectionResult.Error(
-                "Inspection must be REVIEWING or IN_PROGRESS to complete, " +
-                    "current status: ${session.status}",
+            val error = InspectionValidationError.InvalidLifecycleTransition(
+                from = session.status,
+                to = InspectionStatus.COMPLETED,
+                message = "Cannot complete inspection in status ${session.status}.",
             )
+            return CompleteInspectionResult.ValidationFailed(listOf(error))
         }
 
         // RULE 1 + 2: Validate before completing
@@ -56,8 +68,14 @@ class CompleteInspectionUseCase(
             emptyList()
         }
 
-        // RULE 8: Schedule next inspection
-        val nextDue = scheduleNext(template, completedAtMillis)
+        // RULE 8: Schedule next inspection (fallback: template → asset policy)
+        val nextDue = scheduleNext(template, asset, completedAtMillis)
+
+        // Persist nextDue into asset (Cách B)
+        if (nextDue != null) {
+            val updatedAsset = asset.copy(nextInspectionDueAtMillis = nextDue)
+            assetRepository.saveAsset(updatedAsset)
+        }
 
         // Save complete
         val completed = CompletedInspection(
@@ -78,8 +96,8 @@ class CompleteInspectionUseCase(
     }
 
     private fun findCriticalFailures(
-        session: com.topic11.cs426.domain.model.InspectionSession,
-        template: com.topic11.cs426.domain.model.InspectionTemplate,
+        session: InspectionSession,
+        template: InspectionTemplate,
     ): List<CriticalFailure> {
         val answerMap = session.answers.associateBy { it.checklistItemId }
         val failures = mutableListOf<CriticalFailure>()
@@ -87,7 +105,7 @@ class CompleteInspectionUseCase(
         for (section in template.sections) {
             for (item in section.items) {
                 val answer = answerMap[item.id]
-                if (item.critical && answer?.value == com.topic11.cs426.domain.model.ChecklistAnswerValue.Fail) {
+                if (item.critical && answer?.value == ChecklistAnswerValue.Fail) {
                     failures.add(
                         CriticalFailure(
                             inspectionId = session.id,
