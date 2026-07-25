@@ -4,18 +4,16 @@ import com.topic11.cs426.domain.model.IssueId
 import com.topic11.cs426.domain.model.IssueSeverity
 import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.model.MaintenanceIssueStatus
-import com.topic11.cs426.domain.repository.IssueRepository
-
-class CreateMaintenanceIssueUseCase(
-    @Suppress("unused")
-    private val issueRepository: IssueRepository,
-) {
+class CreateMaintenanceIssueUseCase {
     suspend operator fun invoke(
         failures: List<CriticalFailure>,
+        createdAtMillis: Long = System.currentTimeMillis(),
     ): List<MaintenanceIssue> {
         val issues = failures.map { failure ->
             MaintenanceIssue(
-                id = IssueId("issue-${System.currentTimeMillis()}-${failures.indexOf(failure)}"),
+                id = IssueId(
+                    "issue-${failure.inspectionId.value}-${failure.checklistItemId.value}",
+                ),
                 inspectionId = failure.inspectionId,
                 assetId = failure.assetId,
                 checklistItemId = failure.checklistItemId,
@@ -23,7 +21,7 @@ class CreateMaintenanceIssueUseCase(
                 title = failure.title,
                 description = failure.description,
                 status = MaintenanceIssueStatus.OPEN,
-                createdAtMillis = System.currentTimeMillis(),
+                createdAtMillis = createdAtMillis,
             )
         }
 

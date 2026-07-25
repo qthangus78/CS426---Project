@@ -5,13 +5,11 @@ import com.topic11.cs426.domain.model.CompletedInspection
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.repository.InspectionRepository
-import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
 
 class CompleteInspectionUseCase(
     private val inspectionRepository: InspectionRepository,
     private val templateRepository: TemplateRepository,
-    private val issueRepository: IssueRepository,
     private val validateInspection: ValidateInspectionUseCase,
     private val calculateScore: CalculateInspectionScoreUseCase,
     private val createIssue: CreateMaintenanceIssueUseCase,
@@ -51,7 +49,7 @@ class CompleteInspectionUseCase(
         // RULE 3: Create issues for critical failures
         val criticalFailures = findCriticalFailures(session, template)
         val newIssues = if (criticalFailures.isNotEmpty()) {
-            createIssue(criticalFailures)
+            createIssue(criticalFailures, completedAtMillis)
         } else {
             emptyList()
         }
@@ -65,6 +63,7 @@ class CompleteInspectionUseCase(
             answers = session.answers,
             score = score,
             issues = newIssues,
+            nextInspectionDueAtMillis = nextDue,
             completedAtMillis = completedAtMillis,
         )
         inspectionRepository.complete(completed)

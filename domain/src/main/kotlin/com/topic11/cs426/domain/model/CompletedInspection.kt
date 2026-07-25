@@ -5,5 +5,6 @@ data class CompletedInspection(
     val answers: List<InspectionAnswer>,
     val score: InspectionScore,
     val issues: List<MaintenanceIssue>,
+    val nextInspectionDueAtMillis: Long?,
     val completedAtMillis: Long,
 )

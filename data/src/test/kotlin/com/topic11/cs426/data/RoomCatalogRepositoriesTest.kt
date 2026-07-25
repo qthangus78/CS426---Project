@@ -62,6 +62,13 @@ class RoomCatalogRepositoriesTest {
 
         assertEquals("HCMUS", summaries.first { it.id == asset?.id }.locationName)
         assertEquals("LAB-I44", asset?.code)
+
+        repository.saveAsset(requireNotNull(asset).copy(nextInspectionDueAtMillis = 42_000L))
+
+        assertEquals(
+            42_000L,
+            repository.getAsset(asset.id)?.nextInspectionDueAtMillis,
+        )
     }
 
     @Test

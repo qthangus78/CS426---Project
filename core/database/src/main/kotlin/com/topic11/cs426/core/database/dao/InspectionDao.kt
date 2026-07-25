@@ -159,6 +159,18 @@ interface InspectionDao {
     @Upsert
     suspend fun upsertIssues(issues: List<MaintenanceIssueEntity>)
 
+    @Query(
+        """
+        UPDATE assets
+        SET next_inspection_due_at_ms = :nextInspectionDueAtMillis
+        WHERE id = :assetId
+        """,
+    )
+    suspend fun updateAssetNextInspectionDue(
+        assetId: String,
+        nextInspectionDueAtMillis: Long?,
+    ): Int
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPendingSync(commands: List<PendingSyncEntity>)
 
@@ -195,8 +207,17 @@ interface InspectionDao {
         evidence: List<EvidenceEntity>,
         issues: List<MaintenanceIssueEntity>,
         pendingSync: List<PendingSyncEntity>,
+        nextInspectionDueAtMillis: Long?,
     ) {
         upsertInspection(inspection)
+        check(
+            updateAssetNextInspectionDue(
+                assetId = inspection.assetId,
+                nextInspectionDueAtMillis = nextInspectionDueAtMillis,
+            ) == 1,
+        ) {
+            "Inspection asset no longer exists: ${inspection.assetId}"
+        }
         deleteAnswers(inspection.id)
         upsertAnswers(answers)
         upsertEvidence(evidence)

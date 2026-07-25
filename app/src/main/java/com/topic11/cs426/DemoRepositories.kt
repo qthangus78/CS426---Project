@@ -1,6 +1,8 @@
 package com.topic11.cs426
 
+import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
+import com.topic11.cs426.domain.model.AssetSummary
 import com.topic11.cs426.domain.model.ChecklistAnswerType
 import com.topic11.cs426.domain.model.ChecklistItem
 import com.topic11.cs426.domain.model.ChecklistItemId
@@ -15,7 +17,9 @@ import com.topic11.cs426.domain.model.InspectionTemplateSummary
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
 import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.LocationId
 import com.topic11.cs426.domain.model.MaintenanceIssue
+import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
 import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
@@ -26,6 +30,41 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+
+private val demoAssets = listOf(
+    Asset(AssetId("asset-lab-1"), "Computer Lab I.44", "LAB-I44", LocationId("hcmus")),
+    Asset(AssetId("asset-proj-1"), "Projector P-204", "PROJECTOR-P204", LocationId("hcmus")),
+    Asset(AssetId("asset-lab-2"), "Laboratory A2 Safety Check", "LAB-A2", LocationId("hcmus")),
+)
+
+internal class DemoAssetRepository : AssetRepository {
+    private val assets = MutableStateFlow(demoAssets)
+
+    override fun observeAssets(): Flow<List<AssetSummary>> =
+        assets.map { values ->
+            values.map { asset ->
+                AssetSummary(
+                    id = asset.id,
+                    name = asset.name,
+                    code = asset.code,
+                    locationName = "HCMUS",
+                    nextInspectionDueAtMillis = asset.nextInspectionDueAtMillis,
+                )
+            }
+        }
+
+    override suspend fun getAsset(id: AssetId): Asset? =
+        assets.value.firstOrNull { it.id == id }
+
+    override suspend fun saveAsset(asset: Asset) {
+        check(assets.value.any { it.id == asset.id }) {
+            "Asset does not exist: ${asset.id.value}"
+        }
+        assets.update { values ->
+            values.map { if (it.id == asset.id) asset else it }
+        }
+    }
+}
 
 // ── Demo template ─────────────────────────────────────────────────────────────
 

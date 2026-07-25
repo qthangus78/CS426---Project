@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -97,7 +98,7 @@ class RoomInspectionRepositoryTest {
     }
 
     @Test
-    fun `complete writes inspection issue and pending sync atomically`() = runTest {
+    fun `complete writes inspection issue and pending sync atomically and idempotently`() = runTest {
         FieldFlowSampleDataSeeder(database).seedIfEmpty()
         val inspectionId = InspectionId("computer-lab-i-44")
         val issue = MaintenanceIssue(
@@ -111,23 +112,81 @@ class RoomInspectionRepositoryTest {
             createdAtMillis = 5_000L,
         )
 
-        repository.complete(
-            CompletedInspection(
-                id = inspectionId,
-                answers = listOf(answer(inspectionId, "sample-item-0")),
-                score = InspectionScore(earnedWeight = 1, totalWeight = 1),
-                issues = listOf(issue),
-                completedAtMillis = 5_000L,
-            ),
+        val completed = CompletedInspection(
+            id = inspectionId,
+            answers = listOf(answer(inspectionId, "sample-item-0")),
+            score = InspectionScore(earnedWeight = 1, totalWeight = 1),
+            issues = listOf(issue),
+            nextInspectionDueAtMillis = 86_400_000L,
+            completedAtMillis = 5_000L,
         )
+        repository.complete(completed)
+        repository.complete(completed)
 
         val recovered = requireNotNull(repository.getInspection(inspectionId))
         assertEquals(InspectionStatus.SYNC_PENDING, recovered.status)
+        assertEquals(
+            86_400_000L,
+            database.catalogDao()
+                .getAsset("sample-asset-lab-i44")
+                ?.nextInspectionDueAtMillis,
+        )
         assertEquals(issue.id.value, database.issueDao().getIssue(issue.id.value)?.id)
+        assertEquals(1, database.issueDao().observeIssues().first().size)
+        assertEquals(
+            1,
+            database.syncDao().getCommands()
+                .count { it.id == "sync-complete-${inspectionId.value}" },
+        )
         assertEquals(
             "PENDING",
             database.syncDao().getCommand("sync-complete-${inspectionId.value}")?.state,
         )
+    }
+
+    @Test
+    fun `complete rolls back inspection and asset due date when issue persistence fails`() = runTest {
+        FieldFlowSampleDataSeeder(database).seedIfEmpty()
+        val inspectionId = InspectionId("computer-lab-i-44")
+        val assetId = "sample-asset-lab-i44"
+        val originalAssetDue = database.catalogDao()
+            .getAsset(assetId)
+            ?.nextInspectionDueAtMillis
+        val invalidIssue = MaintenanceIssue(
+            id = IssueId("issue-invalid-checklist-item"),
+            inspectionId = inspectionId,
+            assetId = AssetId(assetId),
+            checklistItemId = ChecklistItemId("missing-checklist-item"),
+            severity = IssueSeverity.CRITICAL,
+            title = "Cannot be persisted",
+            status = MaintenanceIssueStatus.OPEN,
+            createdAtMillis = 5_000L,
+        )
+
+        val failure = runCatching {
+            repository.complete(
+                CompletedInspection(
+                    id = inspectionId,
+                    answers = listOf(answer(inspectionId, "sample-item-0")),
+                    score = InspectionScore(earnedWeight = 1, totalWeight = 1),
+                    issues = listOf(invalidIssue),
+                    nextInspectionDueAtMillis = 86_400_000L,
+                    completedAtMillis = 5_000L,
+                ),
+            )
+        }.exceptionOrNull()
+
+        assertTrue("Expected the invalid issue foreign key to fail", failure != null)
+        assertEquals(
+            InspectionStatus.IN_PROGRESS,
+            repository.getInspection(inspectionId)?.status,
+        )
+        assertEquals(
+            originalAssetDue,
+            database.catalogDao().getAsset(assetId)?.nextInspectionDueAtMillis,
+        )
+        assertNull(database.issueDao().getIssue(invalidIssue.id.value))
+        assertNull(database.syncDao().getCommand("sync-complete-${inspectionId.value}"))
     }
 
     private fun answer(inspectionId: InspectionId, itemId: String) = InspectionAnswer(

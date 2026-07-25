@@ -2,6 +2,7 @@ package com.topic11.cs426.data
 
 import com.topic11.cs426.core.database.dao.CatalogDao
 import com.topic11.cs426.data.mapping.toDomain
+import com.topic11.cs426.data.mapping.toEntity
 import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.AssetSummary
@@ -20,4 +21,11 @@ class RoomAssetRepository(
 
     override suspend fun getAsset(id: AssetId): Asset? =
         catalogDao.getAsset(id.value)?.toDomain()
+
+    override suspend fun saveAsset(asset: Asset) {
+        requireNotNull(catalogDao.getAsset(asset.id.value)) {
+            "Asset does not exist: ${asset.id.value}"
+        }
+        catalogDao.upsertAssets(listOf(asset.toEntity()))
+    }
 }

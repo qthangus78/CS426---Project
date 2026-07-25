@@ -9,6 +9,9 @@ import com.topic11.cs426.data.RoomInspectionRepository
 import com.topic11.cs426.data.RoomIssueRepository
 import com.topic11.cs426.data.RoomTemplateRepository
 import com.topic11.cs426.data.seed.FieldFlowSampleDataSeeder
+import com.topic11.cs426.data.sync.FakeRemoteSyncAdapter
+import com.topic11.cs426.data.sync.FakeSyncOutcome
+import com.topic11.cs426.data.sync.FakeSyncScenario
 import com.topic11.cs426.domain.repository.InspectionRepository
 import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
@@ -36,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class FieldFlowCompositionRoot private constructor(
@@ -86,6 +90,16 @@ class FieldFlowCompositionRoot private constructor(
                     scope.launch {
                         FieldFlowSampleDataSeeder(it).seedIfEmpty()
                     }
+                    val fakeSync = FakeRemoteSyncAdapter(
+                        syncDao = it.syncDao(),
+                        scenario = FakeSyncScenario { FakeSyncOutcome.Success(delayMillis = 250L) },
+                        clock = System::currentTimeMillis,
+                    )
+                    scope.launch {
+                        it.syncDao().observeRetryableCommands().collect { commands ->
+                            commands.forEach { command -> fakeSync.sync(command.id) }
+                        }
+                    }
                 }
             }
 
@@ -96,10 +110,9 @@ class FieldFlowCompositionRoot private constructor(
             val completeInspection = CompleteInspectionUseCase(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
-                issueRepository = issueRepository,
                 validateInspection = validateInspection,
                 calculateScore = CalculateInspectionScoreUseCase(),
-                createIssue = CreateMaintenanceIssueUseCase(issueRepository),
+                createIssue = CreateMaintenanceIssueUseCase(),
                 scheduleNext = ScheduleNextInspectionUseCase(),
             )
 

@@ -34,6 +34,16 @@ fun AssetEntity.toDomain() = Asset(
     nextInspectionDueAtMillis = nextInspectionDueAtMillis,
 )
 
+fun Asset.toEntity() = AssetEntity(
+    id = id.value,
+    name = name,
+    code = code,
+    locationId = requireNotNull(locationId?.value) {
+        "Persisted asset requires a location: ${id.value}"
+    },
+    nextInspectionDueAtMillis = nextInspectionDueAtMillis,
+)
+
 fun TemplateAggregateRecord.toDomain(): InspectionTemplate {
     // Domain currently has no revision ID. Treat the stable Room revision key as TemplateId so
     // an existing inspection can never be remapped to a newer checklist revision.

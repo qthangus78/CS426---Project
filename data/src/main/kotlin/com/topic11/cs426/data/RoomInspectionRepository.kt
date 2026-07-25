@@ -154,6 +154,7 @@ class RoomInspectionRepository(
             evidence = inspectionDao.getEvidence(completed.id.value),
             issues = completed.issues.map { it.toEntity(completed.completedAtMillis) },
             pendingSync = listOf(pendingSync),
+            nextInspectionDueAtMillis = completed.nextInspectionDueAtMillis,
         )
     }
 

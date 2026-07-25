@@ -1,6 +1,5 @@
 package com.topic11.cs426.domain
 
-import com.topic11.cs426.core.testing.FakeIssueRepository
 import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.core.testing.RecordingInspectionRepository
@@ -23,6 +22,24 @@ import org.junit.Test
 class DomainBusinessRulesTest {
 
     private val fixtures = InspectionTestFixtures
+
+    @Test
+    fun `critical issue IDs remain stable when completion is retried`() = runTest {
+        val failure = CriticalFailure(
+            inspectionId = fixtures.computerLab.id,
+            assetId = fixtures.asset1Id,
+            checklistItemId = fixtures.itemCriticalId,
+            title = "Critical failure",
+        )
+        val useCase = CreateMaintenanceIssueUseCase()
+
+        val firstAttempt = useCase(listOf(failure), createdAtMillis = 1_000L)
+        val retry = useCase(listOf(failure), createdAtMillis = 2_000L)
+
+        assertEquals(firstAttempt.single().id, retry.single().id)
+        assertEquals(1_000L, firstAttempt.single().createdAtMillis)
+        assertEquals(2_000L, retry.single().createdAtMillis)
+    }
 
     // ─────────────────────────────────────────────
     // TEST 1: cannotCompleteWithUnansweredRequiredItem
@@ -110,16 +127,14 @@ class DomainBusinessRulesTest {
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
-        val issueRepo = FakeIssueRepository()
         val validateUseCase = ValidateInspectionUseCase()
         val scoreUseCase = CalculateInspectionScoreUseCase()
-        val createIssueUseCase = CreateMaintenanceIssueUseCase(issueRepo)
+        val createIssueUseCase = CreateMaintenanceIssueUseCase()
         val scheduleUseCase = ScheduleNextInspectionUseCase()
 
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
-            issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
             createIssue = createIssueUseCase,
@@ -188,16 +203,14 @@ class DomainBusinessRulesTest {
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
-        val issueRepo = FakeIssueRepository()
         val validateUseCase = ValidateInspectionUseCase()
         val scoreUseCase = CalculateInspectionScoreUseCase()
-        val createIssueUseCase = CreateMaintenanceIssueUseCase(issueRepo)
+        val createIssueUseCase = CreateMaintenanceIssueUseCase()
         val scheduleUseCase = ScheduleNextInspectionUseCase()
 
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
-            issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
             createIssue = createIssueUseCase,
@@ -235,16 +248,14 @@ class DomainBusinessRulesTest {
         val templateRepo = FakeTemplateRepository(
             templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
         )
-        val issueRepo = FakeIssueRepository()
         val validateUseCase = ValidateInspectionUseCase()
         val scoreUseCase = CalculateInspectionScoreUseCase()
-        val createIssueUseCase = CreateMaintenanceIssueUseCase(issueRepo)
+        val createIssueUseCase = CreateMaintenanceIssueUseCase()
         val scheduleUseCase = ScheduleNextInspectionUseCase()
 
         val completeUseCase = CompleteInspectionUseCase(
             inspectionRepository = inspectionRepo,
             templateRepository = templateRepo,
-            issueRepository = issueRepo,
             validateInspection = validateUseCase,
             calculateScore = scoreUseCase,
             createIssue = createIssueUseCase,

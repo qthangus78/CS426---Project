@@ -44,6 +44,7 @@ class FieldFlowSampleDataSeeder(
             evidence = emptyList(),
             issues = emptyList(),
             pendingSync = listOf(pendingSync),
+            nextInspectionDueAtMillis = assets[2].nextInspectionDueAtMillis,
         )
         true
     }

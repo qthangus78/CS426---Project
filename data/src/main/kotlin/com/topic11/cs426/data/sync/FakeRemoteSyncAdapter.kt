@@ -11,7 +11,7 @@ class FakeRemoteSyncAdapter(
     private val delayOperation: suspend (Long) -> Unit = { delay(it) },
 ) {
     suspend fun sync(commandId: String): FakeSyncResult {
-        val claimed = syncDao.markSyncing(commandId, clock())
+        val claimed = syncDao.markSyncingWithInspection(commandId, clock())
         if (claimed == 0) {
             return FakeSyncResult.NotEligible
         }
@@ -24,7 +24,7 @@ class FakeRemoteSyncAdapter(
 
         return when (outcome) {
             is FakeSyncOutcome.Success -> {
-                check(syncDao.markSynced(commandId, clock()) == 1) {
+                check(syncDao.markSyncedWithInspection(commandId, clock()) == 1) {
                     "Sync command changed before success was recorded: $commandId"
                 }
                 FakeSyncResult.Synced
@@ -32,7 +32,7 @@ class FakeRemoteSyncAdapter(
 
             is FakeSyncOutcome.Failure -> {
                 check(
-                    syncDao.markFailed(
+                    syncDao.markFailedWithInspection(
                         id = commandId,
                         errorCode = outcome.errorCode,
                         updatedAtMillis = clock(),
