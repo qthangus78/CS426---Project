@@ -11,7 +11,7 @@ FieldFlow is a multi-module Android inspection workflow app.
 - `:feature:inspection` provides an editable draft/review/validate/complete workflow.
 - Assets, Templates, Issues, and Reports now have Room-backed product workflows. Backend sync, authentication, full template aggregate authoring, and scheduled/cloud reporting remain out of scope.
 
-Do not leak Room/Data implementation details into feature modules. `FieldFlowCompositionRoot` is the only place allowed to assemble app runtime repository bindings. `DemoRepositories.kt` is a code-level fallback for approved adapter-swap experiments and tests, not a product UI mode.
+Do not leak Room/Data implementation details into feature modules. `FieldFlowCompositionRoot` is the only place allowed to assemble app runtime repository bindings, and `FieldFlowApplication` owns it for the process lifetime. Repository-adapter selection is not a product UI mode.
 
 ## Default Read Set
 

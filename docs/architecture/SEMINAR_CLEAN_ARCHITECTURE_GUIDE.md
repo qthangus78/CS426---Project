@@ -80,7 +80,7 @@ flowchart TD
     testing --> domain
 ```
 
-The current runtime app assembles Room-backed repositories in `app/src/main/java/com/topic11/cs426/FieldFlowCompositionRoot.kt`: `RoomInspectionRepository`, `RoomTemplateRepository`, `RoomAssetRepository`, and `AndroidEvidenceStore`. Sample catalog and inspection data is seeded asynchronously at startup. `DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests; it is not selected by the normal product runtime.
+The current runtime app assembles Room-backed repositories in `app/src/main/java/com/topic11/cs426/FieldFlowCompositionRoot.kt`: `RoomInspectionRepository`, `RoomTemplateRepository`, `RoomAssetRepository`, and `AndroidEvidenceStore`. Sample catalog and inspection data is seeded asynchronously at startup. The root is created and held by `FieldFlowApplication`, so it lives for the whole process and is no longer closed and reopened when the Activity is recreated.
 
 ## 4. Dependency Rule
 
@@ -97,11 +97,11 @@ Evidence:
 - `domain/build.gradle.kts` is a Kotlin/JVM module, not an Android module.
 - `feature/inspection/build.gradle.kts` depends on `:domain`, `:core:navigation`, and `:core:designsystem`, not `:data`.
 - `data/build.gradle.kts` depends on `:domain` and `:core:database`.
-- `domain/src/main/kotlin/com/topic11/cs426/domain/repository/InspectionRepository.kt` defines the port that both demo and Room adapters implement.
+- `domain/src/main/kotlin/com/topic11/cs426/domain/repository/InspectionRepository.kt` defines the port that both the Room adapter and `FakeInspectionRepository` implement.
 
 ## 5. Responsibility of Every Module
 
-`:app` is the composition root. It owns `MainActivity.kt`, `FieldFlowCompositionRoot.kt`, concrete Room repository selection, asynchronous sample seeding, use-case construction, Circuit factory registration, and the code-level `DemoRepositories.kt` fallback.
+`:app` is the composition root. It owns `FieldFlowApplication.kt`, `MainActivity.kt`, `FieldFlowCompositionRoot.kt`, `PendingSyncDrain.kt`, concrete Room repository selection, asynchronous sample seeding, the app-scoped pending-sync drain loop, use-case construction, and Circuit factory registration. `FieldFlowApplication` creates the composition root lazily and holds it for the process lifetime; `MainActivity` only reads it.
 
 `:domain` owns business models, use cases, and repository/export/storage ports. Important files include `InspectionSession.kt`, `InspectionTemplate.kt`, `InspectionScore.kt`, `ValidateInspectionUseCase.kt`, `CompleteInspectionUseCase.kt`, and `GenerateInspectionReportUseCase.kt`.
 
@@ -205,11 +205,10 @@ Domain ports include:
 Adapters include:
 
 - `RoomInspectionRepository.kt`, `RoomTemplateRepository.kt`, and `RoomAssetRepository.kt` in `:data` for the current Room-backed runtime.
-- `DemoInspectionRepository`, `DemoTemplateRepository`, `DemoIssueRepository`, and `DemoAssetRepository` in `:app` as a code-level fallback for deterministic adapter-swap experiments and tests.
 - `FakeInspectionRepository.kt` and `FakeRemoteSyncAdapter.kt` in `:data` for deterministic tests and sync simulation.
 - `AndroidEvidenceStore.kt` and `EvidenceFileStorage.kt` in `:data` for Android file-backed evidence storage infrastructure.
 
-The important point is replacement. `:feature:inspection` uses `CompleteInspectionUseCase`, not `RoomInspectionRepository`. The current Room-backed binding happens in `:app`, with Domain and feature modules unchanged. The fallback demo adapters are not exposed through product UI.
+The important point is replacement. `:feature:inspection` uses `CompleteInspectionUseCase`, not `RoomInspectionRepository`. The current Room-backed binding happens in `:app`, with Domain and feature modules unchanged.
 
 ## 9. Slack Circuit Presentation
 
@@ -248,7 +247,7 @@ The offline-first runtime is built around Room as the local source of truth:
 - Mappers: `InspectionSessionMapper.kt` and `InspectionSummaryMapper.kt`.
 - Migration and persistence tests: `FieldFlowMigrationTest.kt`, `DraftRecoveryTest.kt`, and `PendingSyncTest.kt`.
 
-`FieldFlowCompositionRoot.kt` opens the Room database, schedules sample seeding on an app-scoped IO coroutine, and passes Room-backed adapters into Domain use cases. The architecture supports Room as local source of truth, Flow observation, persisted drafts, and pending synchronization state. Manual Android Studio testing is still required to confirm process-restart behavior on the owner-selected runtime device.
+`FieldFlowCompositionRoot.kt` opens the Room database, schedules sample seeding on an app-scoped IO coroutine, and passes Room-backed adapters into Domain use cases. It also starts `PendingSyncDrain` on that same app scope, which collects `SyncDao.observeRetryableCommands()` and hands each command to `FakeRemoteSyncAdapter`; a failure re-emits from the DAO flow immediately, so the loop paces retries with exponential backoff and stops claiming a command after `DEFAULT_MAX_SYNC_ATTEMPTS`. Without that consumer a completed inspection stayed `PENDING` forever and the Dashboard "Sync pending" tile only counted up. The architecture supports Room as local source of truth, Flow observation, persisted drafts, and pending synchronization state. Manual Android Studio testing is still required to confirm process-restart behavior on the owner-selected runtime device.
 
 ## 12. Testing Strategy
 
@@ -258,6 +257,7 @@ FieldFlow uses several levels of tests:
 - Database and DAO tests: `FieldFlowDatabaseTest.kt`, `DraftRecoveryTest.kt`, `PendingSyncTest.kt`, and `FieldFlowMigrationTest.kt`.
 - Data adapter tests: `RoomInspectionRepositoryTest.kt`, `RoomCatalogRepositoriesTest.kt`, `RoomReportRepositoryTest.kt`, `InspectionSummaryMapperTest.kt`, `FieldFlowSampleDataSeederTest.kt`, `AndroidEvidenceStoreTest.kt`, report exporter tests, and `FakeRemoteSyncAdapterTest.kt`.
 - Presenter tests: `DashboardPresenterTest.kt`, `InspectionPresenterTest.kt`, `IssuesPresenterTest.kt`, and `ReportsPresenterTest.kt`.
+- Composition-root tests in `:app`: `SampleDataSeedingCoordinatorTest.kt`, `PendingSyncDrainTest.kt` for the drain loop's backoff and attempt budget, and `PendingSyncDrainEndToEndTest.kt`, which runs the real database, DAO flow, and adapter to assert a queued completion reaches `SYNCED` and stops reporting `SYNC_PENDING`.
 - Runtime UI/instrumentation coverage is limited to `app/src/androidTest/java/com/topic11/cs426/FieldFlowNavigationSmokeTest.kt` and should be completed manually with `docs/demo/FINAL_MANUAL_ACCEPTANCE_CHECKLIST.md`.
 
 The strongest tests are Domain, DAO, mapper, repository, and Presenter tests. Manual runtime acceptance remains necessary because this review does not run an emulator.
@@ -282,7 +282,7 @@ Maintainability: Dashboard and Inspection presenters depend on use cases, not Ro
 
 Scalability: each feature module has its own Gradle boundary and package.
 
-Replaceability: `InspectionRepository.kt` is implemented by demo/test adapters and by `RoomInspectionRepository.kt`.
+Replaceability: `InspectionRepository.kt` is implemented by test adapters and by `RoomInspectionRepository.kt`.
 
 Parallel team development: `docs/architecture/TEAM_OWNERSHIP.md` maps feature and layer ownership.
 

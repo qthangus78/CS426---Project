@@ -27,7 +27,7 @@ DashboardUi
 -> DashboardUi
 ```
 
-Point out that Dashboard depends on Domain use cases, not Data or Room. `:app` selects the Room-backed repository at the composition root, and sample catalog/inspection data is seeded asynchronously during startup so `MainActivity.onCreate` is not blocked by database work.
+Point out that Dashboard depends on Domain use cases, not Data or Room. `:app` selects the Room-backed repository at the composition root, which `FieldFlowApplication` owns for the process lifetime, and sample catalog/inspection data is seeded asynchronously during startup so `MainActivity.onCreate` is not blocked by database work.
 
 ## 3. Inspection Workflow
 
@@ -78,6 +78,7 @@ Point out:
 - Room schema version 3 is present;
 - Room repository and DAO tests cover draft recovery, issue updates, report history, and pending sync state;
 - `:app` binds Room repositories in `FieldFlowCompositionRoot.kt`;
+- `:app` also runs `PendingSyncDrain` on the app scope, so a completed inspection is queued in `pending_sync`, then drained by `FakeRemoteSyncAdapter` and settles on `SYNCED`. Expect the seeded "Sync pending" sample and any inspection you complete during the demo to reach "Completed" shortly after launch rather than staying pending;
 - Android Studio manual testing should still confirm process-restart draft recovery and pending-sync visibility on a device or emulator selected by the repository owner.
 
 ## 6. Architecture Explanation
@@ -106,6 +107,7 @@ Implemented for seminar:
 - Room-backed Locations workflow;
 - Settings Appearance workflow with persisted System/Light/Dark theme mode;
 - Room-backed runtime persistence with asynchronous sample seeding;
+- an app-scoped pending-sync drain loop over the durable `pending_sync` queue, with exponential backoff and a bounded attempt count;
 - Room/Data infrastructure with unit tests;
 - app-layer open/share bridge for exported report artifacts.
 
@@ -115,5 +117,3 @@ Not implemented as runtime app behavior:
 - real QR/GPS/push/AI;
 - real camera/gallery evidence capture or upload flow;
 - cloud synchronization, backend authentication, email delivery, report scheduling, push notifications, or AI-generated summaries.
-
-`DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests. It is not selected by the normal product runtime and must not be exposed as a product UI setting.

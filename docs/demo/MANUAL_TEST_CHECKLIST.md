@@ -16,6 +16,7 @@ Use Android Studio with a local emulator or device selected by the repository ow
 - [ ] Tap the Dashboard information action and confirm the About dialog opens and closes.
 - [ ] Tap Settings from the Dashboard top app bar and confirm Settings opens.
 - [ ] Confirm the All, In progress, Not started, and Sync pending filters update the visible list only.
+- [ ] Confirm the Sync pending count reaches 0 shortly after launch — the app-scoped drain loop consumes the queue — and that the Sync pending filter then shows its empty state rather than a stale card.
 - [ ] Confirm every inspection card shows a title, status, progress, and navigation affordance.
 - [ ] Confirm long titles and metadata remain readable.
 

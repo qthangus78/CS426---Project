@@ -19,9 +19,10 @@ This repository is a multi-module Android project. Agents should treat the exist
 - Room database version 3, DAOs, migrations, mappings, seeding, evidence storage, report history, and fake sync exist. The app
   composition root opens Room with migrations, schedules sample-data seeding asynchronously, binds Room-backed
   inspection/template/asset/issue/report repositories, and owns Android open/share wiring for report exports; evidence storage
-  is wired through the inspection flow, while fake sync is not runtime-wired yet.
-- `DemoRepositories.kt` remains a code-level fallback for approved adapter-swap experiments and tests. Do not expose Demo/Room
-  selection in product UI.
+  is wired through the inspection flow, and `PendingSyncDrain` runs `FakeRemoteSyncAdapter` on the app scope so the
+  `pending_sync` queue is consumed with exponential backoff and a bounded attempt count.
+- `FieldFlowApplication` owns the composition root for the process lifetime; `MainActivity` reads it and must not create or
+  close it. Do not expose repository-adapter selection in product UI.
 
 ## Read Before Editing
 
@@ -79,6 +80,9 @@ reading the owning slice.
 - `app`, `core/navigation`, `core/database`, `core/designsystem`, Gradle, or shared contract changes: run the full Android
    build and lint set.
 - Docs-only changes may use `scripts/agent/verify.ps1 -Plan` to record that no Gradle task is selected.
+- Changes to `:app` UI, navigation, or the composition root: also run `:app:ciDeviceDebugAndroidTest`, the
+  instrumented suite on the Gradle-managed device. CI runs it on every push and pull request to `main`,
+  so leaving it broken fails the branch rather than going unnoticed.
 
 ## Safety And External Sources
 

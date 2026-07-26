@@ -86,7 +86,13 @@ PowerShell:
 .\gradlew.bat :domain:test :data:testDebugUnitTest :core:database:testDebugUnitTest :app:testDebugUnitTest :feature:dashboard:testDebugUnitTest :feature:assets:testDebugUnitTest :feature:locations:testDebugUnitTest :feature:templates:testDebugUnitTest :feature:inspection:testDebugUnitTest :feature:issues:testDebugUnitTest :feature:reports:testDebugUnitTest :feature:settings:testDebugUnitTest --no-daemon
 .\gradlew.bat lintDebug test assembleDebug --no-daemon
 .\gradlew.bat connectedDebugAndroidTest --no-daemon
+.\gradlew.bat :app:ciDeviceDebugAndroidTest --no-daemon
 ```
+
+`connectedDebugAndroidTest` needs an emulator or device you started yourself. `:app:ciDeviceDebugAndroidTest`
+runs the same suite on the Gradle-managed device declared in `app/build.gradle.kts` (Pixel 6, API 35,
+`aosp-atd`), downloading and booting it on demand — this is the exact device CI uses, so a local pass and
+a CI pass mean the same thing. Reports land in `app/build/reports/androidTests/managedDevice/`.
 
 Use `scripts/agent/verify.ps1` to select the narrowest repository-approved check:
 
@@ -94,6 +100,18 @@ Use `scripts/agent/verify.ps1` to select the narrowest repository-approved check
 .\scripts\agent\verify.ps1 -Path README.md docs\architecture\MODULE_GRAPH.md
 .\scripts\agent\verify.ps1 -Full
 ```
+
+## Continuous Integration
+
+`.github/workflows/android-ci.yml` runs on every push and pull request to `main`, in two parallel jobs:
+
+| Job | What it runs | Why |
+| --- | --- | --- |
+| Build and lint | `lintDebug test assembleDebug :app:assembleDebugAndroidTest` | Fast gate. Includes compiling the instrumented suite so a test that no longer builds fails in minutes, not after an emulator boot. |
+| Instrumented tests | `:app:ciDeviceDebugAndroidTest` on the managed device | Runs the navigation smoke tests on a real emulator, so regressions in the app runtime cannot land unnoticed. |
+
+The instrumented job caches the system image and AVD, and uploads its HTML report as a build artifact on
+every run so a failure can be read without re-running the job.
 
 ## Team Ownership
 
