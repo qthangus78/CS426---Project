@@ -39,6 +39,37 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric needs the merged resources and manifest to boot; the pending-sync drain test
+        // runs the real Room database rather than a fake so the wiring is covered end to end.
+        unitTests.isIncludeAndroidResources = true
+        // Espresso and Compose both wait on the animation clock; leaving system animations on is the
+        // usual source of emulator-only flakes in the navigation smoke test.
+        animationsDisabled = true
+        managedDevices {
+            localDevices {
+                // The device CI runs the instrumented suite on. Declaring it here rather than in the
+                // workflow keeps `./gradlew :app:ciDeviceDebugAndroidTest` identical locally and on CI.
+                //
+                // ATD is the stripped-down image Google publishes for instrumented tests: no Play
+                // services, no wallpaper, no GPU, so it boots in a fraction of the time.
+                //
+                // API 35 and not 36, which would match targetSdk, for two measured reasons. The ATD
+                // image only reaches the stable SDK channel up to 35 — at 36 it exists solely on the
+                // dev channel, which AGP will not resolve. And on the API 36 emulator image the two
+                // Espresso.pressBack() tests fail headless with RootViewWithoutFocusException: the
+                // app window never takes focus, so the back key is never delivered. That is an
+                // emulator-image quirk, not an app defect — a real back-handling regression surfaces
+                // as NoActivityResumedException or a failed assertion, not as a missing window focus.
+                //
+                // The cost is that behaviour changes specific to targeting API 36 go uncovered here.
+                // Worth revisiting once ATD 36 reaches the stable channel.
+                create("ciDevice") {
+                    device = "Pixel 6"
+                    apiLevel = 35
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
     }
 }
 
@@ -70,6 +101,9 @@ dependencies {
     implementation(libs.circuit.foundation)
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

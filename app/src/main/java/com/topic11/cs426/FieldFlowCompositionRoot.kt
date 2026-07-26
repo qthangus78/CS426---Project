@@ -17,6 +17,8 @@ import com.topic11.cs426.data.report.JsonReportExporter
 import com.topic11.cs426.data.report.PdfReportExporter
 import com.topic11.cs426.data.report.ReportFileStorage
 import com.topic11.cs426.data.seed.FieldFlowSampleDataSeeder
+import com.topic11.cs426.data.sync.AttemptBasedFakeSyncScenario
+import com.topic11.cs426.data.sync.FakeRemoteSyncAdapter
 import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.AppearancePreferenceRepository
 import com.topic11.cs426.domain.repository.EvidenceStore
@@ -73,14 +75,11 @@ import com.topic11.cs426.feature.settings.SettingsPresenterFactory
 import com.topic11.cs426.feature.settings.SettingsUiFactory
 import com.topic11.cs426.feature.templates.TemplatesPresenterFactory
 import com.topic11.cs426.feature.templates.TemplatesUiFactory
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.flow.StateFlow
 
 class FieldFlowCompositionRoot private constructor(
     val circuit: Circuit,
@@ -89,13 +88,20 @@ class FieldFlowCompositionRoot private constructor(
     val observeThemeMode: ObserveThemeModeUseCase,
     private val database: FieldFlowDatabase,
     private val appScope: CoroutineScope,
-    private val seedFailure: AtomicReference<Throwable?>,
-    internal val sampleDataSeedJob: Job,
+    private val sampleDataSeeding: SampleDataSeedingCoordinator,
 ) : AutoCloseable {
     private var isClosed = false
 
-    internal val sampleDataSeedingFailure: Throwable?
-        get() = seedFailure.get()
+    /** Startup seeding progress, so the shell can surface a failure instead of swallowing it. */
+    val sampleDataSeedingState: StateFlow<SampleDataSeedingState>
+        get() = sampleDataSeeding.state
+
+    /** Runs seeding again after a failure. No-op once the graph is closed. */
+    fun retrySampleDataSeeding() {
+        if (isClosed) return
+
+        sampleDataSeeding.start()
+    }
 
     override fun close() {
         if (isClosed) return
@@ -129,6 +135,15 @@ class FieldFlowCompositionRoot private constructor(
                     jsonReportExporter = JsonReportExporter(reportFileStorage),
                     pdfReportExporter = PdfReportExporter(reportFileStorage),
                 )
+                val syncDao = database.syncDao()
+                // No backend exists yet, so the adapter stands in for one. An empty attempt map means
+                // the default outcome — immediate success — which is what makes a completed
+                // inspection settle on SYNCED instead of sitting on "Sync pending" forever.
+                val remoteSyncAdapter = FakeRemoteSyncAdapter(
+                    syncDao = syncDao,
+                    scenario = AttemptBasedFakeSyncScenario(outcomesByAttempt = emptyMap()),
+                    clock = System::currentTimeMillis,
+                )
                 createWithRepositories(
                     database = database,
                     appScope = appScope,
@@ -151,6 +166,10 @@ class FieldFlowCompositionRoot private constructor(
                     seedSampleData = {
                         FieldFlowSampleDataSeeder(database).seedIfEmpty()
                     },
+                    pendingSyncDrain = PendingSyncDrain(
+                        retryableCommands = syncDao.observeRetryableCommands(),
+                        sync = remoteSyncAdapter::sync,
+                    ),
                 )
             } catch (throwable: Throwable) {
                 appScope.cancel()
@@ -172,6 +191,7 @@ class FieldFlowCompositionRoot private constructor(
             evidenceStore: EvidenceStore,
             reportActionHandler: ReportActionHandler,
             seedSampleData: suspend () -> Unit,
+            pendingSyncDrain: PendingSyncDrain,
         ): FieldFlowCompositionRoot {
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
             val observeAssets = ObserveAssetsUseCase(assetRepository)
@@ -304,12 +324,16 @@ class FieldFlowCompositionRoot private constructor(
                 .addUiFactory(SettingsUiFactory())
                 .build()
 
-            val seedFailure = AtomicReference<Throwable?>()
-            val sampleDataSeedJob = launchFieldFlowStartupSeeding(
+            val sampleDataSeeding = SampleDataSeedingCoordinator(
                 scope = appScope,
                 seedSampleData = seedSampleData,
-                onFailure = seedFailure::set,
             )
+            sampleDataSeeding.start()
+
+            // Lives on the app scope rather than a presenter: the queue has to keep draining while the
+            // user is on another screen, and a completed inspection must not be stranded because the
+            // Activity that completed it went away.
+            launchFieldFlowPendingSyncDrain(scope = appScope, drain = pendingSyncDrain)
 
             return FieldFlowCompositionRoot(
                 circuit = circuit,
@@ -318,22 +342,8 @@ class FieldFlowCompositionRoot private constructor(
                 observeThemeMode = observeThemeMode,
                 database = database,
                 appScope = appScope,
-                seedFailure = seedFailure,
-                sampleDataSeedJob = sampleDataSeedJob,
+                sampleDataSeeding = sampleDataSeeding,
             )
         }
-    }
-}
-
-internal fun launchFieldFlowStartupSeeding(
-    scope: CoroutineScope,
-    seedSampleData: suspend () -> Unit,
-    onFailure: (Throwable) -> Unit,
-): Job = scope.launch {
-    try {
-        seedSampleData()
-    } catch (throwable: Throwable) {
-        if (throwable is CancellationException) throw throwable
-        onFailure(throwable)
     }
 }
