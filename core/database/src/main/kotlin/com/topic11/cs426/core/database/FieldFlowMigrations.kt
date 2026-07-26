@@ -11,7 +11,7 @@ object FieldFlowMigrations {
      * intentionally data-preserving and contains no destructive statements.
      */
     val MIGRATION_1_2 = object : Migration(1, 2) {
-        override fun migrate(database: SupportSQLiteDatabase) = Unit
+        override fun migrate(db: SupportSQLiteDatabase) = Unit
     }
 
     val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)

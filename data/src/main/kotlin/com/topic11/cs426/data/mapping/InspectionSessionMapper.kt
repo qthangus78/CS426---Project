@@ -26,8 +26,15 @@ fun InspectionSessionRecord.toDomain(
 
     val evidenceIdsByItem = evidence
         .filter { it.checklistItemId != null }
-        .groupBy { it.checklistItemId!! }
-        .mapValues { (_, records) -> records.map { EvidenceId(it.id) } }
+        .mapNotNull { record ->
+            record.checklistItemId?.let { checklistItemId ->
+                checklistItemId to EvidenceId(record.id)
+            }
+        }
+        .groupBy(
+            keySelector = { (checklistItemId, _) -> checklistItemId },
+            valueTransform = { (_, evidenceId) -> evidenceId },
+        )
 
     return InspectionSession(
         id = InspectionId(inspectionId),

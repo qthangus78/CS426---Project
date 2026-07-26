@@ -18,6 +18,7 @@ import com.topic11.cs426.domain.model.InspectionAnswer
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionSection
 import com.topic11.cs426.domain.model.InspectionSession
+import com.topic11.cs426.domain.model.InspectionScore
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.model.InspectionTemplate
@@ -36,6 +37,7 @@ import com.topic11.cs426.domain.usecase.ObserveTemplateUseCase
 import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
 import com.topic11.cs426.domain.usecase.ScheduleNextInspectionUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -48,6 +50,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class InspectionPresenterTest {
 
     private val screen = InspectionScreen("computer-lab-i-44")
@@ -78,7 +81,6 @@ class InspectionPresenterTest {
                 inspectionRepository = inspectionRepository,
                 templateRepository = fakeTemplateRepo,
                 assetRepository = fakeAssetRepo,
-                issueRepository = issueRepository,
                 validateInspection = ValidateInspectionUseCase(),
                 calculateScore = CalculateInspectionScoreUseCase(),
                 createIssue = CreateMaintenanceIssueUseCase(issueRepository),
@@ -88,7 +90,7 @@ class InspectionPresenterTest {
     }
 
     // Helper: consumes Loading states and returns the first Editing state.
-    // Phase 2 presenters always emit Loading before the first Editing.
+            // Presenters emit Loading before the first Editing state while flows start.
     private suspend fun ReceiveTurbine<InspectionState>.awaitEditing(): InspectionState.Editing {
         var state = awaitItem()
         while (state is InspectionState.Loading) state = awaitItem()
@@ -466,6 +468,29 @@ class InspectionPresenterTest {
     }
 
     // ── CompleteSelected — success ─────────────────────────────────────────────
+
+    @Test
+    fun `existing completed inspection opens in read-only Completed state`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+        val completedSession = FakeInspectionRepository.createSession().copy(
+            status = InspectionStatus.SYNC_PENDING,
+            completedAtMillis = 2_000L,
+            score = InspectionScore(earnedWeight = 5, totalWeight = 7),
+        )
+
+        presenter(
+            navigator = navigator,
+            initialSession = completedSession,
+            inspectionRepository = FakeInspectionRepository(completedSession),
+        ).test {
+            val completed = awaitState<InspectionState.Completed>()
+
+            assertEquals(5f / 7f, requireNotNull(completed.score), 0.0001f)
+            completed.eventSink(InspectionEvent.BackSelected)
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     fun `CompleteSelected with all required items answered transitions to Completed`() = runTest {
@@ -930,7 +955,7 @@ private class FakeIssueRepository : IssueRepository {
 /**
  * Fake template repository returning an [InspectionTemplate] whose section/item IDs
  * and required-flags mirror [FakeSession.sections], so existing test assertions on
- * item counts and required counts remain valid after the Phase 2 domain wiring.
+ * item counts and required counts remain valid as Domain wiring evolves.
  */
 private class FakeTemplateRepository : TemplateRepository {
     private val templateId = TemplateId("template-standard")

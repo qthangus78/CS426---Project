@@ -10,14 +10,12 @@ import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionValidationError
 import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
-import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
 
 class CompleteInspectionUseCase(
     private val inspectionRepository: InspectionRepository,
     private val templateRepository: TemplateRepository,
     private val assetRepository: AssetRepository,
-    private val issueRepository: IssueRepository,
     private val validateInspection: ValidateInspectionUseCase,
     private val calculateScore: CalculateInspectionScoreUseCase,
     private val createIssue: CreateMaintenanceIssueUseCase,
@@ -71,7 +69,6 @@ class CompleteInspectionUseCase(
         // RULE 8: Schedule next inspection (fallback: template → asset policy)
         val nextDue = scheduleNext(template, asset, completedAtMillis)
 
-        // Persist nextDue into asset (Cách B)
         if (nextDue != null) {
             val updatedAsset = asset.copy(nextInspectionDueAtMillis = nextDue)
             assetRepository.saveAsset(updatedAsset)

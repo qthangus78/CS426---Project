@@ -37,10 +37,10 @@ private val DEMO_TEMPLATE_ID = TemplateId("template-standard")
 /**
  * Demo [InspectionTemplate] used by [DemoTemplateRepository].
  *
- * Section/item IDs mirror the hardcoded demo data from Phase 1 so navigation
+ * Section/item IDs mirror the deterministic sample data so navigation
  * smoke tests and manual testing continue to work without modification.
  *
- * Phase 3: remove once [com.topic11.cs426.data.RoomTemplateRepository] is wired.
+ * Replace this in the composition root when a Room-backed template repository is available.
  */
 internal val demoTemplate = InspectionTemplate(
     id = DEMO_TEMPLATE_ID,
@@ -181,7 +181,7 @@ internal class DemoAssetRepository : AssetRepository {
  * Provides demo [InspectionSession] and [InspectionSummary] data for runtime
  * use while the real Room implementation (Lĩnh's `:data` module) is not yet wired.
  *
- * Phase 3: replace with [com.topic11.cs426.data.RoomInspectionRepository].
+ * Replace this in the composition root to switch the runtime to Room-backed inspection data.
  */
 internal class DemoInspectionRepository : InspectionRepository {
 
@@ -265,7 +265,7 @@ internal class DemoIssueRepository : IssueRepository {
  * Provides [demoTemplate] for runtime use while Lĩnh's Room implementation is
  * not yet wired.
  *
- * Phase 3: replace with [com.topic11.cs426.data.RoomTemplateRepository].
+ * Replace this in the composition root when a Room-backed template repository is available.
  */
 internal class DemoTemplateRepository : TemplateRepository {
     override fun observeTemplates(): Flow<List<InspectionTemplateSummary>> = flowOf(emptyList())

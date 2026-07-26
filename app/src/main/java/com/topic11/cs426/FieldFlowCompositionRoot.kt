@@ -42,11 +42,11 @@ class FieldFlowCompositionRoot private constructor(
     companion object {
         /**
          * Creates the app-scoped object graph. [applicationContext] is intentionally accepted
-         * at this Android boundary so Phase 3 can build and seed Room here without affecting
-         * presentation wiring.
+         * at this Android boundary so Room-backed repositories can be selected here later
+         * without affecting presentation wiring.
          */
         fun create(applicationContext: Context): FieldFlowCompositionRoot {
-            // Phase 3 binding replacement point: create and seed Room-backed repositories here.
+            // Runtime demo binding: replace here when the Room-backed graph becomes active.
             val inspectionRepository = DemoInspectionRepository()
             val templateRepository = DemoTemplateRepository()
             val issueRepository = DemoIssueRepository()
@@ -76,7 +76,6 @@ class FieldFlowCompositionRoot private constructor(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
                 assetRepository = assetRepository,
-                issueRepository = issueRepository,
                 validateInspection = validateInspection,
                 calculateScore = CalculateInspectionScoreUseCase(),
                 createIssue = CreateMaintenanceIssueUseCase(issueRepository),

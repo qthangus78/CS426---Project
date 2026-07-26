@@ -2,17 +2,12 @@
 
 `:domain` is a pure Kotlin/JVM module. It owns FieldFlow business contracts and use cases.
 
-The Architecture Bootstrap intentionally includes only the inspection summary contracts needed for the first vertical slice. Future Domain work belongs here before UI or data implementation details are added.
+Implemented responsibilities include IDs, assets, locations, inspection templates, checklist answers,
+inspection sessions, validation, weighted scoring, lifecycle completion, maintenance issue creation,
+next-inspection scheduling, report modeling, and repository/export ports.
 
-Planned areas:
+Boundary rules:
 
-- assets and locations;
-- inspection templates;
-- checklist items and answers;
-- validation;
-- weighted scoring;
-- lifecycle transitions;
-- evidence requirements;
-- maintenance issue creation;
-- next-inspection scheduling;
-- report eligibility.
+- no Android, Compose, Circuit, Room, Data, app, or feature imports;
+- ports are owned here and implemented by outer adapters;
+- business rules are tested with JVM unit tests under `domain/src/test`.

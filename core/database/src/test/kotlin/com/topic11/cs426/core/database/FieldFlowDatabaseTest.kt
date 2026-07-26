@@ -76,6 +76,22 @@ class FieldFlowDatabaseTest {
     }
 
     @Test
+    fun `inspection summary does not count unanswered rows as completed items`() = runTest {
+        insertCatalog()
+        val draft = inspection(lifecycleStatus = "IN_PROGRESS", syncStatus = "NOT_REQUIRED")
+        val answered = answer(note = "Checked locally")
+        val unanswered = unansweredAnswer(checklistItemId = "item-projector")
+
+        database.inspectionDao().saveDraft(draft, listOf(answered, unanswered), emptyList())
+
+        val summary = database.inspectionDao().observeInspectionSummary(INSPECTION_ID).first()
+
+        requireNotNull(summary)
+        assertEquals(1, summary.completedItems)
+        assertEquals(2, summary.totalItems)
+    }
+
+    @Test
     fun `completeInspection writes issue and pending sync in one transaction`() = runTest {
         insertCatalog()
         database.inspectionDao().saveDraft(
@@ -218,6 +234,18 @@ class FieldFlowDatabaseTest {
         valueBoolean = null,
         unit = null,
         note = note,
+        updatedAtMillis = 2_000L,
+    )
+
+    private fun unansweredAnswer(checklistItemId: String) = InspectionAnswerEntity(
+        inspectionId = INSPECTION_ID,
+        checklistItemId = checklistItemId,
+        answerType = "UNANSWERED",
+        valueText = null,
+        valueNumber = null,
+        valueBoolean = null,
+        unit = null,
+        note = null,
         updatedAtMillis = 2_000L,
     )
 

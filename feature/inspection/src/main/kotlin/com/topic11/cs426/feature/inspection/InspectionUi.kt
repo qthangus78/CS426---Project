@@ -476,7 +476,7 @@ private fun ChecklistItemRow(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("📷  Take Photo (demo)")
+                    Text("📷  Take Photo")
                 }
                 TextButton(
                     onClick = {
@@ -485,7 +485,7 @@ private fun ChecklistItemRow(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("🖼  Choose from Gallery (demo)")
+                    Text("🖼  Choose from Gallery")
                 }
                 TextButton(
                     onClick = { showEvidencePicker = false },

@@ -1,6 +1,6 @@
 # FieldFlow
 
-FieldFlow is an Android inspection-workflow project for asset and facility inspections. The repository is a functional prototype: it contains a complete Domain workflow, a Circuit-based inspection UI, and an implemented Room/Data foundation. The app runtime still uses deterministic in-memory demo repositories while the Room-backed graph is integrated.
+FieldFlow is an Android inspection-workflow project for asset and facility inspections. The repository is a functional prototype: it contains a complete Domain workflow, a Circuit-based inspection UI, and an implemented Room/Data foundation. The app runtime still uses deterministic in-memory demo repositories while the Room-backed graph waits for composition-root integration.
 
 Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 

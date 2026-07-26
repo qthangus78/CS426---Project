@@ -88,7 +88,7 @@ internal fun DashboardTopArea(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 StatusBadge(
-                    label = "Architecture Bootstrap",
+                    label = "Operations overview",
                     tone = StatusTone.Neutral,
                 )
             }

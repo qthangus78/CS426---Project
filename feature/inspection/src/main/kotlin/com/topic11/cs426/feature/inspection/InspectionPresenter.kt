@@ -48,7 +48,7 @@ internal class InspectionPresenter(
 
     @Composable
     override fun present(): InspectionState {
-        var phase by remember { mutableStateOf(WorkflowPhase.Editing) }
+        var requestedPhase by remember(screen.inspectionId) { mutableStateOf<WorkflowPhase?>(null) }
         var validationErrors by remember { mutableStateOf(emptyList<ValidationError>()) }
         var draftSession by remember { mutableStateOf<InspectionSession?>(null) }
         var saveError by remember { mutableStateOf<String?>(null) }
@@ -75,6 +75,7 @@ internal class InspectionPresenter(
 
         // Keep local edits in one complete domain session until the draft is saved.
         val session = draftSession?.takeIf { it.id == observedSession.id } ?: observedSession
+        val phase = requestedPhase ?: observedSession.status.toWorkflowPhase()
         val sections = remember(template) {
             template.sections
                 .sortedBy { it.order }
@@ -125,7 +126,7 @@ internal class InspectionPresenter(
                     InspectionEvent.BackSelected -> when (phase) {
                         WorkflowPhase.Editing, WorkflowPhase.Completed -> navigator.pop()
                         WorkflowPhase.Reviewing, WorkflowPhase.ValidationFailed -> {
-                            phase = WorkflowPhase.Editing
+                            requestedPhase = WorkflowPhase.Editing
                         }
                     }
 
@@ -164,7 +165,7 @@ internal class InspectionPresenter(
                     }
 
                     InspectionEvent.ReviewSelected -> {
-                        phase = WorkflowPhase.Reviewing
+                        requestedPhase = WorkflowPhase.Reviewing
                     }
 
                     InspectionEvent.SaveDraftSelected -> {
@@ -191,20 +192,20 @@ internal class InspectionPresenter(
                                     validationErrors = validation.errors.map { error ->
                                         error.toUiValidationError()
                                     }
-                                    phase = WorkflowPhase.ValidationFailed
+                                    requestedPhase = WorkflowPhase.ValidationFailed
                                     return@launch
                                 }
 
                                 when (val result = completeInspection(session.id)) {
                                     is CompleteInspectionResult.Success -> {
                                         completionResult = result
-                                        phase = WorkflowPhase.Completed
+                                        requestedPhase = WorkflowPhase.Completed
                                     }
                                     is CompleteInspectionResult.ValidationFailed -> {
                                         validationErrors = result.errors.map { error ->
                                             error.toUiValidationError()
                                         }
-                                        phase = WorkflowPhase.ValidationFailed
+                                        requestedPhase = WorkflowPhase.ValidationFailed
                                     }
                                     is CompleteInspectionResult.Error -> {
                                         saveError = result.message
@@ -252,7 +253,7 @@ internal class InspectionPresenter(
             WorkflowPhase.Completed -> InspectionState.Completed(
                 title = session.assetName,
                 summary = inspectionProgress,
-                score = completionResult?.score?.percent,
+                score = completionResult?.score?.percent ?: session.score?.percent,
                 issueCount = completionResult?.issues?.size ?: 0,
                 nextInspectionDueAtMillis = completionResult?.nextInspectionDueAtMillis,
                 eventSink = eventSink,
@@ -260,7 +261,19 @@ internal class InspectionPresenter(
         }
     }
 
-    private enum class WorkflowPhase { Editing, Reviewing, ValidationFailed, Completed }
+}
+
+private enum class WorkflowPhase { Editing, Reviewing, ValidationFailed, Completed }
+
+private fun InspectionStatus.toWorkflowPhase(): WorkflowPhase = when (this) {
+    InspectionStatus.NOT_STARTED,
+    InspectionStatus.IN_PROGRESS,
+    -> WorkflowPhase.Editing
+
+    InspectionStatus.REVIEWING -> WorkflowPhase.Reviewing
+    InspectionStatus.COMPLETED,
+    InspectionStatus.SYNC_PENDING,
+    -> WorkflowPhase.Completed
 }
 
 private fun InspectionSection.toUi(): InspectionSectionUi = InspectionSectionUi(

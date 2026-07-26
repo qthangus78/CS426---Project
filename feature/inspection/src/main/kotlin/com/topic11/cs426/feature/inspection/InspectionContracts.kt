@@ -13,10 +13,9 @@ import com.slack.circuit.runtime.CircuitUiState
  *     Loading -> Editing -> (Reviewing | ValidationFailed) -> Completed
  *
  * The models below ([InspectionSectionUi], [ChecklistItemUi], [ChecklistAnswerUi],
- * [ValidationError]) are feature-owned presentation models. They intentionally do NOT
- * reference domain types so this slice can run on fake data in Phase 1. When the domain
- * session contract is ready, the Presenter maps domain models onto these UI models — the
- * mapping is the only thing that changes, not this contract.
+ * [ValidationError]) are feature-owned presentation models. The Presenter maps Domain
+ * sessions, templates, answers, and validation errors onto these UI models so Compose
+ * rendering stays decoupled from repository and persistence details.
  */
 @Immutable
 sealed interface InspectionState : CircuitUiState {
