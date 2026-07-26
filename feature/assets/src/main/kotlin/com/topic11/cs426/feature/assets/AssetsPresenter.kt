@@ -42,39 +42,51 @@ internal class AssetsPresenter(
 ) : Presenter<AssetsState> {
     @Composable
     override fun present(): AssetsState {
+        var query by remember { mutableStateOf("") }
         val eventSink = remember(navigator) {
             { event: AssetsEvent ->
                 when (event) {
                     AssetsEvent.AddSelected -> navigator.goTo(AssetEditorScreen(assetId = null))
                     is AssetsEvent.AssetSelected -> navigator.goTo(AssetDetailScreen(event.assetId.value))
                     AssetsEvent.BackSelected -> navigator.pop()
+                    is AssetsEvent.SearchQueryChanged -> query = event.query
+                    AssetsEvent.SearchCleared -> query = ""
                 }
                 Unit
             }
         }
-        val state by remember(observeAssets, eventSink) {
+        val observedAssets by remember(observeAssets) {
             observeAssets()
-                .map<List<AssetSummary>, AssetsState> { assets ->
-                    if (assets.isEmpty()) {
-                        AssetsState.Empty(eventSink)
-                    } else {
-                        AssetsState.Content(
-                            assets = assets.map { it.toListItemUi() },
-                            eventSink = eventSink,
-                        )
-                    }
-                }
-                .catch {
-                    emit(
-                        AssetsState.Error(
-                            message = "Assets could not be loaded.",
-                            eventSink = eventSink,
-                        ),
+                .map<List<AssetSummary>, ObservedAssets> { ObservedAssets.Loaded(it) }
+                .catch { emit(ObservedAssets.Failed) }
+        }.collectAsState(initial = ObservedAssets.Loading)
+        return when (val observed = observedAssets) {
+            ObservedAssets.Loading -> AssetsState.Loading
+            ObservedAssets.Failed -> AssetsState.Error(
+                message = "Assets could not be loaded.",
+                eventSink = eventSink,
+            )
+            is ObservedAssets.Loaded -> {
+                val assets = observed.assets.map { it.toListItemUi() }
+                val filtered = assets.filterBy(query)
+                when {
+                    assets.isEmpty() -> AssetsState.Empty(query = query, eventSink = eventSink)
+                    else -> AssetsState.Content(
+                        assets = filtered,
+                        query = query,
+                        hasNoSearchResults = query.isNotBlank() && filtered.isEmpty(),
+                        eventSink = eventSink,
                     )
                 }
-        }.collectAsState(initial = AssetsState.Loading)
-        return state
+            }
+        }
     }
+}
+
+private sealed interface ObservedAssets {
+    data object Loading : ObservedAssets
+    data object Failed : ObservedAssets
+    data class Loaded(val assets: List<AssetSummary>) : ObservedAssets
 }
 
 internal class AssetDetailPresenter(
@@ -333,6 +345,16 @@ private fun AssetSummary.toListItemUi() = AssetListItemUi(
     locationName = locationName,
     nextInspectionDueLabel = nextInspectionDueAtMillis?.formatDateLabel(),
 )
+
+private fun List<AssetListItemUi>.filterBy(query: String): List<AssetListItemUi> {
+    val normalized = query.trim()
+    if (normalized.isEmpty()) return this
+    return filter { asset ->
+        asset.name.contains(normalized, ignoreCase = true) ||
+            asset.code?.contains(normalized, ignoreCase = true) == true ||
+            asset.locationName?.contains(normalized, ignoreCase = true) == true
+    }
+}
 
 private fun Asset.toDetailUi(locations: List<Location>) = AssetDetailUi(
     id = id,

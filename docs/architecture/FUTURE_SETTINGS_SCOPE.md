@@ -1,14 +1,19 @@
-# Future Settings Scope
+# Settings Scope
 
-This document is future scope only. FieldFlow does not currently implement a Settings screen, Settings navigation, preference persistence, notification settings, synchronization settings, local-data reset, account profile, or theme toggle.
+FieldFlow now implements a Settings destination for Appearance.
 
-Settings should be implemented only after the involved owners agree on contracts and module boundaries. The current app follows the system light or dark appearance automatically through `FieldFlowTheme`.
+Implemented behavior:
 
-## Potential Future Settings
+- Settings navigation from the Dashboard top app bar;
+- System, Light, and Dark appearance modes;
+- persisted appearance preference through an app-layer SharedPreferences adapter;
+- observable Domain preference port and use cases;
+- immediate root-theme application through `FieldFlowTheme`.
+
+## Remaining Future Settings
 
 | Setting | Future behavior | Layers and modules involved | Required owner participation |
 | --- | --- | --- | --- |
-| System, Light, and Dark appearance | Let users choose system appearance or explicitly use light or dark mode. | Future Settings presentation, `:core:navigation` Settings screen contract, `:app` theme wiring, `:core:designsystem` theme API, future preference persistence. | Linh for Settings UI and design system, Thắng for app/navigation, Lĩnh for persistence if the choice is stored. |
 | Accessibility and text-display preferences | Offer app-level display preferences such as denser text, larger content, or reduced decorative motion after the team defines supported behavior. | Future Settings presentation, `:core:designsystem` typography/component behavior, `:app` application wiring, future preference persistence. | Linh for UI/design system, Thắng for app integration, Lĩnh for persistence if stored. |
 | Synchronization preferences | Configure future sync behavior only after a real sync contract exists. | Future Settings presentation, future Domain sync policies/use cases, future Data sync adapters, `:app` scheduler/composition wiring, future persistence. | Linh for UI, Huy for Domain rules, Lĩnh for Data/sync implementation, Thắng for app integration. |
 | Notification preferences | Configure future reminders or export/sync notifications only after notification behavior is approved. | Future Settings presentation, `:app` Android notification permission and scheduling integration, future Domain notification policy if needed, future persistence. | Linh for UI, Thắng for Android/app integration, Huy for policy if needed, Lĩnh for persistence if stored. |
@@ -18,8 +23,6 @@ Settings should be implemented only after the involved owners agree on contracts
 
 ## Current Non-Goals
 
-- Do not create a Settings Gradle module without an approved ownership and navigation decision.
-- Do not add a Settings `Screen` contract or navigation destination.
-- Do not add SharedPreferences, DataStore, or any other preference storage.
-- Do not add a theme toggle, notification preferences, synchronization preferences, account/profile settings, local-data reset, or fake setting values.
+- Do not add notification preferences, synchronization preferences, account/profile settings, local-data reset, or fake setting values without approved product behavior.
+- Do not expose repository selection, architecture modes, or demo-data mode in product UI.
 - Do not route Dashboard About FieldFlow through Settings. The About dialog is local Dashboard presentation.

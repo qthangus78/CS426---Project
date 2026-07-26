@@ -35,6 +35,10 @@ class RoomAssetRepository(
     override suspend fun getLocation(id: LocationId): Location? =
         catalogDao.getLocation(id.value)?.toDomain()
 
+    override suspend fun saveLocation(location: Location) {
+        catalogDao.upsertLocations(listOf(location.toEntity()))
+    }
+
     override suspend fun saveAsset(asset: Asset) {
         val code = asset.code
         if (code != null) {

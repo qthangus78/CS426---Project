@@ -127,6 +127,10 @@ sealed interface TemplateValidationError {
     data object RecurrenceInvalid : TemplateValidationError {
         override val message: String = "Recurrence interval must be positive."
     }
+
+    data object AnswerTypeUnsupported : TemplateValidationError {
+        override val message: String = "This checklist answer type is not available for template creation."
+    }
 }
 
 private fun TemplateCreateInput.normalized(): TemplateCreateInput {
@@ -154,6 +158,9 @@ private fun validateTemplateCreateInput(
     if (input.sectionTitle.isBlank()) errors += TemplateValidationError.SectionTitleRequired
     if (input.itemTitle.isBlank()) errors += TemplateValidationError.ItemTitleRequired
     if (input.weight < 0) errors += TemplateValidationError.WeightInvalid
+    if (input.answerType !in supportedTemplateCreateAnswerTypes) {
+        errors += TemplateValidationError.AnswerTypeUnsupported
+    }
     return errors
 }
 
@@ -166,3 +173,8 @@ private fun validateTemplateMetadataInput(
     if (recurrence != null && recurrence <= 0) errors += TemplateValidationError.RecurrenceInvalid
     return errors
 }
+
+private val supportedTemplateCreateAnswerTypes = setOf(
+    ChecklistAnswerType.PASS_FAIL_NA,
+    ChecklistAnswerType.TEXT,
+)

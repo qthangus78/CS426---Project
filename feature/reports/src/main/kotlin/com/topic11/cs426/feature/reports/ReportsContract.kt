@@ -20,6 +20,8 @@ internal sealed interface ReportsState : CircuitUiState {
     data class Content(
         val candidates: List<ReportCandidateUi>,
         val history: List<ReportHistoryItemUi>,
+        val query: String,
+        val hasNoSearchResults: Boolean,
         val actionMessage: String?,
         val eventSink: (ReportsEvent) -> Unit,
     ) : ReportsState
@@ -55,6 +57,8 @@ internal sealed interface ReportsEvent : CircuitUiEvent {
     data class CandidateSelected(val inspectionId: InspectionId) : ReportsEvent
     data class OpenHistorySelected(val entry: ReportHistoryEntry) : ReportsEvent
     data class ShareHistorySelected(val entry: ReportHistoryEntry) : ReportsEvent
+    data class SearchQueryChanged(val query: String) : ReportsEvent
+    data object SearchCleared : ReportsEvent
 }
 
 internal sealed interface ReportDetailEvent : CircuitUiEvent {

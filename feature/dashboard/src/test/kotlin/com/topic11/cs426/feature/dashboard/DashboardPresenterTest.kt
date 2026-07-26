@@ -6,7 +6,9 @@ import com.topic11.cs426.core.navigation.AssetsScreen
 import com.topic11.cs426.core.navigation.DashboardScreen
 import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.core.navigation.IssuesScreen
+import com.topic11.cs426.core.navigation.LocationsScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
+import com.topic11.cs426.core.navigation.SettingsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
 import com.topic11.cs426.core.testing.FakeAssetRepository
 import com.topic11.cs426.core.testing.FakeTemplateRepository
@@ -335,11 +337,13 @@ class DashboardPresenterTest {
     }
 
     @Test
-    fun `quick access actions navigate to placeholder screens`() = runTest {
+    fun `dashboard actions navigate to product screens`() = runTest {
         assertQuickAccessNavigation(DashboardEvent.AssetsSelected, AssetsScreen)
+        assertQuickAccessNavigation(DashboardEvent.LocationsSelected, LocationsScreen)
         assertQuickAccessNavigation(DashboardEvent.TemplatesSelected, TemplatesScreen)
         assertQuickAccessNavigation(DashboardEvent.IssuesSelected, IssuesScreen)
         assertQuickAccessNavigation(DashboardEvent.ReportsSelected, ReportsScreen)
+        assertQuickAccessNavigation(DashboardEvent.SettingsSelected, SettingsScreen)
     }
 
     private suspend fun assertFilter(

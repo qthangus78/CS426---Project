@@ -111,7 +111,7 @@ Evidence:
 
 `:core:navigation` owns typed Circuit screen contracts in `FieldFlowScreens.kt` so features can navigate without importing each other.
 
-`:core:designsystem` owns shared Compose UI primitives such as `FieldFlowTheme.kt`, `FieldFlowTopAppBar.kt`, `InspectionSummaryCard.kt`, and `FeaturePlaceholder.kt`.
+`:core:designsystem` owns shared Compose UI primitives such as `FieldFlowTheme.kt`, `FieldFlowTopAppBar.kt`, `InspectionSummaryCard.kt`, `LoadingContent.kt`, and `EmptyState.kt`.
 
 `:core:testing` owns reusable fakes and fixtures used by tests, such as `RecordingInspectionRepository.kt` and `InspectionTestFixtures.kt`.
 
@@ -121,7 +121,11 @@ Evidence:
 
 `:feature:assets` owns the Room-backed asset management workflow: list, detail, add/edit, location association, validation, and start-inspection handoff through Domain use cases.
 
+`:feature:locations` owns the Room-backed location management workflow: list/search, detail, add/edit, validation, and Back behavior.
+
 `:feature:templates` owns the Room-backed template workflow: list, detail with sections and checklist items, add template with an initial checklist item, metadata-only editing for existing templates, validation, and start-inspection handoff. Complete multi-section/item authoring remains deferred so existing checklist aggregates are not lost.
+
+`:feature:settings` owns the Appearance settings UI. `:app` owns the Android preference adapter and applies the selected theme mode at the root `FieldFlowTheme`.
 
 `:feature:issues` owns the issue lifecycle workspace: Room-backed issue list, filters, detail, and Domain-validated status transitions.
 

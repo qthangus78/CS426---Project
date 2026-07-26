@@ -14,6 +14,7 @@ import com.topic11.cs426.domain.model.InspectionSection
 import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.IssueId
 import com.topic11.cs426.domain.model.IssueSeverity
+import com.topic11.cs426.domain.model.Location
 import com.topic11.cs426.domain.model.LocationId
 import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.model.MaintenanceIssueStatus
@@ -99,6 +100,26 @@ class RoomCatalogRepositoriesTest {
         assertEquals(asset, repository.getAssetByCode("ROOM-202"))
         assertEquals("Room 202", repository.observeAssets().first().first { it.id == asset.id }.name)
         assertEquals(locationId, repository.getLocation(locationId)?.id)
+    }
+
+    @Test
+    fun `asset repository saves location and updates observed location list`() = runTest {
+        FieldFlowSampleDataSeeder(database).seedIfEmpty()
+        val repository = RoomAssetRepository(database.catalogDao())
+        val parentId = repository.observeLocations().first().single().id
+        val location = Location(
+            id = LocationId("location-building-a"),
+            name = "Building A",
+            parentId = parentId,
+        )
+
+        repository.saveLocation(location)
+
+        assertEquals(location, repository.getLocation(location.id))
+        assertEquals(
+            "Building A",
+            repository.observeLocations().first().first { it.id == location.id }.name,
+        )
     }
 
     @Test

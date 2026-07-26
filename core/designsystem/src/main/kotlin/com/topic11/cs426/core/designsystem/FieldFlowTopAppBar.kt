@@ -2,6 +2,7 @@ package com.topic11.cs426.core.designsystem
 
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 fun FieldFlowTopAppBar(
     title: String,
     onBackClick: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
         title = {
@@ -54,5 +56,6 @@ fun FieldFlowTopAppBar(
                 }
             }
         },
+        actions = actions,
     )
 }

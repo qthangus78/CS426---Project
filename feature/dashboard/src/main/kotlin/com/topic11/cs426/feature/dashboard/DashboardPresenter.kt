@@ -13,7 +13,9 @@ import com.topic11.cs426.core.designsystem.StatusTone
 import com.topic11.cs426.core.navigation.AssetsScreen
 import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.core.navigation.IssuesScreen
+import com.topic11.cs426.core.navigation.LocationsScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
+import com.topic11.cs426.core.navigation.SettingsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.AssetSummary
@@ -154,9 +156,11 @@ internal class DashboardPresenter(
                         }
                     }
                     DashboardEvent.AssetsSelected -> navigator.goTo(AssetsScreen)
+                    DashboardEvent.LocationsSelected -> navigator.goTo(LocationsScreen)
                     DashboardEvent.TemplatesSelected -> navigator.goTo(TemplatesScreen)
                     DashboardEvent.IssuesSelected -> navigator.goTo(IssuesScreen)
                     DashboardEvent.ReportsSelected -> navigator.goTo(ReportsScreen)
+                    DashboardEvent.SettingsSelected -> navigator.goTo(SettingsScreen)
                 }
                 Unit
             }

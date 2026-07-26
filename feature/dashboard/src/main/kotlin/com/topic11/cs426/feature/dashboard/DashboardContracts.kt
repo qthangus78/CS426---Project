@@ -110,9 +110,13 @@ sealed interface DashboardEvent : CircuitUiEvent {
 
     data object AssetsSelected : DashboardEvent
 
+    data object LocationsSelected : DashboardEvent
+
     data object TemplatesSelected : DashboardEvent
 
     data object IssuesSelected : DashboardEvent
 
     data object ReportsSelected : DashboardEvent
+
+    data object SettingsSelected : DashboardEvent
 }

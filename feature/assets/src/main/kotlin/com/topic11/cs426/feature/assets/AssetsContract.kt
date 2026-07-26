@@ -12,11 +12,16 @@ sealed interface AssetsState : CircuitUiState {
     data object Loading : AssetsState
 
     @Immutable
-    data class Empty(val eventSink: (AssetsEvent) -> Unit) : AssetsState
+    data class Empty(
+        val query: String,
+        val eventSink: (AssetsEvent) -> Unit,
+    ) : AssetsState
 
     @Immutable
     data class Content(
         val assets: List<AssetListItemUi>,
+        val query: String,
+        val hasNoSearchResults: Boolean,
         val eventSink: (AssetsEvent) -> Unit,
     ) : AssetsState
 
@@ -40,6 +45,8 @@ sealed interface AssetsEvent : CircuitUiEvent {
     data object BackSelected : AssetsEvent
     data object AddSelected : AssetsEvent
     data class AssetSelected(val assetId: AssetId) : AssetsEvent
+    data class SearchQueryChanged(val query: String) : AssetsEvent
+    data object SearchCleared : AssetsEvent
 }
 
 @Immutable

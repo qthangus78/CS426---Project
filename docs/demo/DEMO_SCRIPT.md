@@ -49,15 +49,19 @@ Explain that validation, scoring, completion, and critical-failure issue creatio
 
 ## 4. Feature Boundaries
 
-From Dashboard quick access, open Assets, Templates, Issues, and Reports.
+From Dashboard quick access, open Assets, Locations, Templates, Issues, and Reports. Open Settings from the Dashboard top app bar.
 
 For Assets, show the Room-backed list, open an asset detail screen, add or edit an asset, preserve the location association, and use Start inspection to enter the existing inspection workflow with a selected template.
+
+For Locations, show the Room-backed list, search, location detail, add/edit behavior, and Back navigation. Deletion is intentionally omitted to preserve asset associations.
 
 For Templates, show the Room-backed list, open template details, review sections and checklist items, add a template with an initial checklist item, and edit existing template metadata without changing the checklist aggregate. Full multi-section/item authoring and active/archive lifecycle controls are not part of the current runtime workflow.
 
 For Issues, complete an inspection with a critical failure first, then show the Room-backed issue list, filters, issue detail, and available lifecycle status actions.
 
 For Reports, show completed inspections ready to export, open a report detail screen, verify score/checklist/issue data, export JSON and PDF, then show the persisted export history plus Open and Share actions.
+
+For Settings, switch between Use system setting, Light, and Dark. The selected mode is persisted through the app-layer preference adapter and applied at the root theme.
 
 ## 5. Offline-First Runtime
 
@@ -99,6 +103,8 @@ Implemented for seminar:
 - pure Kotlin Domain rules and ports;
 - Circuit Dashboard and Inspection workflow;
 - Room-backed Assets, Templates, Issues, and Reports workflows;
+- Room-backed Locations workflow;
+- Settings Appearance workflow with persisted System/Light/Dark theme mode;
 - Room-backed runtime persistence with asynchronous sample seeding;
 - Room/Data infrastructure with unit tests;
 - app-layer open/share bridge for exported report artifacts.
@@ -107,7 +113,7 @@ Not implemented as runtime app behavior:
 
 - production backend/authentication;
 - real QR/GPS/push/AI;
-- real photo picker/evidence upload flow;
+- real camera/gallery evidence capture or upload flow;
 - cloud synchronization, backend authentication, email delivery, report scheduling, push notifications, or AI-generated summaries.
 
 `DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests. It is not selected by the normal product runtime and must not be exposed as a product UI setting.

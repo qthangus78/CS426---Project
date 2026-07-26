@@ -45,7 +45,11 @@ class TemplatesPresenterTest {
             val content = awaitItem() as TemplatesState.Content
 
             assertEquals(listOf(InspectionTestFixtures.templateId), content.templates.map { it.id })
-            content.eventSink(TemplatesEvent.TemplateSelected(InspectionTestFixtures.templateId))
+            content.eventSink(TemplatesEvent.SearchQueryChanged("safety"))
+            val filtered = awaitItem() as TemplatesState.Content
+            assertEquals("safety", filtered.query)
+            assertEquals(listOf(InspectionTestFixtures.templateId), filtered.templates.map { it.id })
+            filtered.eventSink(TemplatesEvent.TemplateSelected(InspectionTestFixtures.templateId))
 
             assertEquals(
                 TemplateDetailScreen(InspectionTestFixtures.templateId.value),

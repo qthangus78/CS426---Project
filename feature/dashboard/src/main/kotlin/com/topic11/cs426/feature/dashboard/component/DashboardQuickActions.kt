@@ -58,12 +58,12 @@ internal fun DashboardQuickActions(
                 modifier = Modifier.weight(1f),
             )
             QuickActionCard(
-                title = "Templates",
-                description = "Inspection checklists",
-                marker = "T",
+                title = "Locations",
+                description = "Sites and rooms",
+                marker = "L",
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                testTag = "dashboard-templates",
-                onClick = { eventSink(DashboardEvent.TemplatesSelected) },
+                testTag = "dashboard-locations",
+                onClick = { eventSink(DashboardEvent.LocationsSelected) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -81,10 +81,24 @@ internal fun DashboardQuickActions(
                 modifier = Modifier.weight(1f),
             )
             QuickActionCard(
+                title = "Templates",
+                description = "Inspection checklists",
+                marker = "T",
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                testTag = "dashboard-templates",
+                onClick = { eventSink(DashboardEvent.TemplatesSelected) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            QuickActionCard(
                 title = "Reports",
                 description = "Inspection summaries",
                 marker = "R",
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 testTag = "dashboard-reports",
                 onClick = { eventSink(DashboardEvent.ReportsSelected) },
                 modifier = Modifier.weight(1f),

@@ -12,11 +12,16 @@ sealed interface TemplatesState : CircuitUiState {
     data object Loading : TemplatesState
 
     @Immutable
-    data class Empty(val eventSink: (TemplatesEvent) -> Unit) : TemplatesState
+    data class Empty(
+        val query: String,
+        val eventSink: (TemplatesEvent) -> Unit,
+    ) : TemplatesState
 
     @Immutable
     data class Content(
         val templates: List<TemplateListItemUi>,
+        val query: String,
+        val hasNoSearchResults: Boolean,
         val eventSink: (TemplatesEvent) -> Unit,
     ) : TemplatesState
 
@@ -39,6 +44,8 @@ sealed interface TemplatesEvent : CircuitUiEvent {
     data object BackSelected : TemplatesEvent
     data object AddSelected : TemplatesEvent
     data class TemplateSelected(val templateId: TemplateId) : TemplatesEvent
+    data class SearchQueryChanged(val query: String) : TemplatesEvent
+    data object SearchCleared : TemplatesEvent
 }
 
 @Immutable

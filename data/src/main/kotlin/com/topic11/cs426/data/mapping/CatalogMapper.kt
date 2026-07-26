@@ -28,6 +28,12 @@ fun LocationEntity.toDomain() = Location(
     parentId = parentId?.let(::LocationId),
 )
 
+fun Location.toEntity() = LocationEntity(
+    id = id.value,
+    name = name,
+    parentId = parentId?.value,
+)
+
 fun AssetSummaryRecord.toDomain() = AssetSummary(
     id = AssetId(asset.id),
     name = asset.name,

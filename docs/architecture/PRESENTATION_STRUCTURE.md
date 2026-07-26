@@ -69,7 +69,8 @@ Dashboard currently renders:
 - a FieldFlow brand area;
 - a derived continue-inspection hero that prefers `IN_PROGRESS` and falls back to `SYNC_PENDING`;
 - overview metrics calculated from the complete inspection summary list;
-- quick actions for Assets, Templates, Issues, and Reports destinations;
+- quick actions for Assets, Locations, Templates, Issues, and Reports destinations;
+- a Settings entry point in the top app bar;
 - status filters that affect only the visible inspection list;
 - loading, empty, content, and filtered-empty states;
 - a local About FieldFlow dialog.
@@ -78,15 +79,19 @@ Inspection currently renders an editable workflow with section navigation, answe
 
 Assets now renders a Room-backed product workflow with list, empty/error states, asset detail, add/edit, location selection, Domain validation, and a start-inspection dialog that reuses the existing inspection-creation use case.
 
+Locations now renders a Room-backed product workflow with list search, empty/error states, detail, add/edit, Domain validation, and Back behavior. Deletion is intentionally omitted because assets use restrictive location foreign keys.
+
 Templates now renders a Room-backed product workflow with list, empty/error states, template detail, section/checklist display, add template with one initial checklist item, metadata-only editing for existing templates, Domain validation, and a start-inspection dialog. Full multi-section/item authoring is intentionally deferred so edits do not drop existing checklist aggregates.
 
 Issues now renders a Room-backed lifecycle workspace with list filters, issue detail, inspection/asset context, loading/empty/error states, and Domain-validated status actions.
 
 Reports now renders completed-inspection candidates, generated report detail, persisted export history, JSON/PDF export actions, and app-layer Open/Share events. The feature depends only on Domain, navigation, and design system contracts; file storage and Android intents remain outside the feature module.
 
+Settings now renders an Appearance workflow with System, Light, and Dark theme choices. The feature uses Domain preference use cases; the Android preference adapter and root theme application remain in `:app`.
+
 ## Shared Presentation Components
 
-`:core:designsystem` owns shared Material 3 presentation primitives used across presentation areas, including `FieldFlowTheme`, `FieldFlowTopAppBar`, `StatusBadge`, `InspectionSummaryCard`, `FeaturePlaceholder`, `LoadingContent`, and `EmptyState`.
+`:core:designsystem` owns shared Material 3 presentation primitives used across presentation areas, including `FieldFlowTheme`, `FieldFlowTopAppBar`, `StatusBadge`, `InspectionSummaryCard`, `LoadingContent`, and `EmptyState`.
 
 `FieldFlowTheme` also owns the small typography refinement used for screen titles, product names, section titles, card titles, body copy, metadata, button text, and chip text. No external font dependency is required.
 
@@ -94,6 +99,6 @@ Dashboard-specific elements remain inside `:feature:dashboard`, including the co
 
 Linh-owned presentation uses the spacing scale `4dp`, `8dp`, `12dp`, `16dp`, `20dp`, `24dp`, and `32dp` for spacing and padding. Larger dimensions may still be used for stable touch targets, cards, previews, and illustrations.
 
-## Future Settings
+## Settings Scope
 
-Settings are not implemented. A future Settings feature requires new screen contracts, app navigation/composition work, and persistence ownership. Proposed scope is documented in [FUTURE_SETTINGS_SCOPE.md](FUTURE_SETTINGS_SCOPE.md).
+Appearance settings are implemented. Additional settings such as sync preferences, notification preferences, local-data reset, account/profile settings, and demo-data mode remain future scope and are documented in [FUTURE_SETTINGS_SCOPE.md](FUTURE_SETTINGS_SCOPE.md).

@@ -30,6 +30,65 @@ data object AssetsScreen : Screen, Parcelable {
     }
 }
 
+data object LocationsScreen : Screen, Parcelable {
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) = Unit
+
+    @JvmField
+    val CREATOR: Parcelable.Creator<LocationsScreen> = object : Parcelable.Creator<LocationsScreen> {
+        override fun createFromParcel(parcel: Parcel): LocationsScreen = LocationsScreen
+
+        override fun newArray(size: Int): Array<LocationsScreen?> = arrayOfNulls(size)
+    }
+}
+
+data class LocationDetailScreen(
+    val locationId: String,
+) : Screen, Parcelable {
+    constructor(parcel: Parcel) : this(
+        locationId = requireNotNull(parcel.readString()) {
+            "LocationDetailScreen requires a persisted locationId."
+        },
+    )
+
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(locationId)
+    }
+
+    companion object {
+        @JvmField
+        val CREATOR: Parcelable.Creator<LocationDetailScreen> = object : Parcelable.Creator<LocationDetailScreen> {
+            override fun createFromParcel(parcel: Parcel): LocationDetailScreen = LocationDetailScreen(parcel)
+
+            override fun newArray(size: Int): Array<LocationDetailScreen?> = arrayOfNulls(size)
+        }
+    }
+}
+
+data class LocationEditorScreen(
+    val locationId: String?,
+) : Screen, Parcelable {
+    constructor(parcel: Parcel) : this(locationId = parcel.readString())
+
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(locationId)
+    }
+
+    companion object {
+        @JvmField
+        val CREATOR: Parcelable.Creator<LocationEditorScreen> = object : Parcelable.Creator<LocationEditorScreen> {
+            override fun createFromParcel(parcel: Parcel): LocationEditorScreen = LocationEditorScreen(parcel)
+
+            override fun newArray(size: Int): Array<LocationEditorScreen?> = arrayOfNulls(size)
+        }
+    }
+}
+
 data class AssetDetailScreen(
     val assetId: String,
 ) : Screen, Parcelable {
@@ -208,6 +267,19 @@ data object ReportsScreen : Screen, Parcelable {
         override fun createFromParcel(parcel: Parcel): ReportsScreen = ReportsScreen
 
         override fun newArray(size: Int): Array<ReportsScreen?> = arrayOfNulls(size)
+    }
+}
+
+data object SettingsScreen : Screen, Parcelable {
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) = Unit
+
+    @JvmField
+    val CREATOR: Parcelable.Creator<SettingsScreen> = object : Parcelable.Creator<SettingsScreen> {
+        override fun createFromParcel(parcel: Parcel): SettingsScreen = SettingsScreen
+
+        override fun newArray(size: Int): Array<SettingsScreen?> = arrayOfNulls(size)
     }
 }
 

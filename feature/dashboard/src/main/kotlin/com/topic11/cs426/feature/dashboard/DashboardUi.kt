@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +63,18 @@ internal fun DashboardUi(
     Scaffold(
         modifier = modifier.testTag("dashboard-root"),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { FieldFlowTopAppBar(title = "Dashboard") },
+        topBar = {
+            FieldFlowTopAppBar(
+                title = "Dashboard",
+                actions = {
+                    aboutEventSink?.let { eventSink ->
+                        TextButton(onClick = { eventSink(DashboardEvent.SettingsSelected) }) {
+                            Text("Settings")
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -113,7 +125,7 @@ internal fun DashboardUi(
                     item {
                         EmptyState(
                             title = "No inspections available",
-                            message = "Inspection summaries will appear when the current repository emits them.",
+                            message = "Start an inspection to begin tracking field work.",
                             modifier = Modifier.testTag("dashboard-empty"),
                         )
                     }

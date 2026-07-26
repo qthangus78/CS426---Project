@@ -16,9 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,31 +86,47 @@ internal fun ReportsUi(
                     }
                 }
                 is ReportsState.Content -> {
-                    if (state.candidates.isNotEmpty()) {
-                        item { SectionHeader("Ready to export") }
-                        items(
-                            items = state.candidates,
-                            key = { candidate -> candidate.inspectionId.value },
-                        ) { candidate ->
-                            ReportCandidateCard(
-                                candidate = candidate,
-                                onClick = {
-                                    state.eventSink(ReportsEvent.CandidateSelected(candidate.inspectionId))
-                                },
+                    item {
+                        ReportsSearchField(
+                            query = state.query,
+                            onQueryChanged = { state.eventSink(ReportsEvent.SearchQueryChanged(it)) },
+                            onClearQuery = { state.eventSink(ReportsEvent.SearchCleared) },
+                        )
+                    }
+                    if (state.hasNoSearchResults) {
+                        item {
+                            EmptyState(
+                                title = "No reports match this search",
+                                message = "Clear the search to view all report candidates and exports.",
                             )
                         }
-                    }
-                    if (state.history.isNotEmpty()) {
-                        item { SectionHeader("Export history") }
-                        items(
-                            items = state.history,
-                            key = { history -> history.entry.id.value },
-                        ) { history ->
-                            ReportHistoryCard(
-                                history = history,
-                                onOpen = { state.eventSink(ReportsEvent.OpenHistorySelected(history.entry)) },
-                                onShare = { state.eventSink(ReportsEvent.ShareHistorySelected(history.entry)) },
-                            )
+                    } else {
+                        if (state.candidates.isNotEmpty()) {
+                            item { SectionHeader("Ready to export") }
+                            items(
+                                items = state.candidates,
+                                key = { candidate -> candidate.inspectionId.value },
+                            ) { candidate ->
+                                ReportCandidateCard(
+                                    candidate = candidate,
+                                    onClick = {
+                                        state.eventSink(ReportsEvent.CandidateSelected(candidate.inspectionId))
+                                    },
+                                )
+                            }
+                        }
+                        if (state.history.isNotEmpty()) {
+                            item { SectionHeader("Export history") }
+                            items(
+                                items = state.history,
+                                key = { history -> history.entry.id.value },
+                            ) { history ->
+                                ReportHistoryCard(
+                                    history = history,
+                                    onOpen = { state.eventSink(ReportsEvent.OpenHistorySelected(history.entry)) },
+                                    onShare = { state.eventSink(ReportsEvent.ShareHistorySelected(history.entry)) },
+                                )
+                            }
                         }
                     }
                     state.actionMessage?.let { message ->
@@ -187,6 +205,28 @@ internal fun ReportDetailUi(
             }
         }
     }
+}
+
+@Composable
+private fun ReportsSearchField(
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    onClearQuery: () -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Search reports") },
+        singleLine = true,
+        trailingIcon = {
+            if (query.isNotBlank()) {
+                TextButton(onClick = onClearQuery) {
+                    Text("Clear")
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -511,6 +551,8 @@ private fun ReportsPreview() {
             state = ReportsState.Content(
                 candidates = listOf(previewCandidate),
                 history = listOf(previewHistory),
+                query = "",
+                hasNoSearchResults = false,
                 actionMessage = null,
                 eventSink = {},
             ),

@@ -41,6 +41,7 @@ internal class TemplatesPresenter(
 ) : Presenter<TemplatesState> {
     @Composable
     override fun present(): TemplatesState {
+        var query by remember { mutableStateOf("") }
         val eventSink = remember(navigator) {
             { event: TemplatesEvent ->
                 when (event) {
@@ -49,33 +50,45 @@ internal class TemplatesPresenter(
                     is TemplatesEvent.TemplateSelected -> {
                         navigator.goTo(TemplateDetailScreen(event.templateId.value))
                     }
+                    is TemplatesEvent.SearchQueryChanged -> query = event.query
+                    TemplatesEvent.SearchCleared -> query = ""
                 }
                 Unit
             }
         }
-        val state by remember(observeTemplates, eventSink) {
+        val observedTemplates by remember(observeTemplates) {
             observeTemplates()
-                .map<List<InspectionTemplateSummary>, TemplatesState> { templates ->
-                    if (templates.isEmpty()) {
-                        TemplatesState.Empty(eventSink)
-                    } else {
-                        TemplatesState.Content(
-                            templates = templates.map { it.toListItemUi() },
-                            eventSink = eventSink,
-                        )
-                    }
-                }
-                .catch {
-                    emit(
-                        TemplatesState.Error(
-                            message = "Templates could not be loaded.",
-                            eventSink = eventSink,
-                        ),
+                .map<List<InspectionTemplateSummary>, ObservedTemplates> { ObservedTemplates.Loaded(it) }
+                .catch { emit(ObservedTemplates.Failed) }
+        }.collectAsState(initial = ObservedTemplates.Loading)
+
+        return when (val observed = observedTemplates) {
+            ObservedTemplates.Loading -> TemplatesState.Loading
+            ObservedTemplates.Failed -> TemplatesState.Error(
+                message = "Templates could not be loaded.",
+                eventSink = eventSink,
+            )
+            is ObservedTemplates.Loaded -> {
+                val templates = observed.templates.map { it.toListItemUi() }
+                val filtered = templates.filterBy(query)
+                when {
+                    templates.isEmpty() -> TemplatesState.Empty(query = query, eventSink = eventSink)
+                    else -> TemplatesState.Content(
+                        templates = filtered,
+                        query = query,
+                        hasNoSearchResults = query.isNotBlank() && filtered.isEmpty(),
+                        eventSink = eventSink,
                     )
                 }
-        }.collectAsState(initial = TemplatesState.Loading)
-        return state
+            }
+        }
     }
+}
+
+private sealed interface ObservedTemplates {
+    data object Loading : ObservedTemplates
+    data object Failed : ObservedTemplates
+    data class Loaded(val templates: List<InspectionTemplateSummary>) : ObservedTemplates
 }
 
 internal class TemplateDetailPresenter(
@@ -372,6 +385,16 @@ private fun InspectionTemplateSummary.toListItemUi() = TemplateListItemUi(
     versionLabel = "Version $version",
     sectionCountLabel = "$sectionCount sections",
 )
+
+private fun List<TemplateListItemUi>.filterBy(query: String): List<TemplateListItemUi> {
+    val normalized = query.trim()
+    if (normalized.isEmpty()) return this
+    return filter { template ->
+        template.name.contains(normalized, ignoreCase = true) ||
+            template.versionLabel.contains(normalized, ignoreCase = true) ||
+            template.sectionCountLabel.contains(normalized, ignoreCase = true)
+    }
+}
 
 private fun InspectionTemplate.toDetailUi() = TemplateDetailUi(
     id = id,

@@ -14,6 +14,7 @@ Use Android Studio with a local emulator or device selected by the repository ow
 - [ ] Confirm overview metrics render clearly.
 - [ ] Confirm the continue-inspection card shows the in-progress sample inspection.
 - [ ] Tap the Dashboard information action and confirm the About dialog opens and closes.
+- [ ] Tap Settings from the Dashboard top app bar and confirm Settings opens.
 - [ ] Confirm the All, In progress, Not started, and Sync pending filters update the visible list only.
 - [ ] Confirm every inspection card shows a title, status, progress, and navigation affordance.
 - [ ] Confirm long titles and metadata remain readable.
@@ -35,10 +36,12 @@ Use Android Studio with a local emulator or device selected by the repository ow
 
 ## Feature Destinations
 
-- [ ] Open Assets and confirm the list/detail/add/edit workflow is usable, then return.
-- [ ] Open Templates and confirm the list/detail/add/edit workflow is usable, then return.
+- [ ] Open Assets and confirm the list/search/detail/add/edit workflow is usable, then return.
+- [ ] Open Locations and confirm the list/search/detail/add/edit workflow is usable, then return.
+- [ ] Open Templates and confirm the list/search/detail/add/edit workflow is usable, then return.
 - [ ] Complete an inspection with a critical failure, open Issues, and confirm the issue appears with filters and detail.
-- [ ] Open Reports and confirm completed inspections, generated detail, export history, JSON export, and PDF export are available.
+- [ ] Open Reports and confirm completed inspections, search, generated detail, export history, JSON export, and PDF export are available.
+- [ ] Open Settings and confirm System, Light, and Dark appearance options are available.
 
 ## Runtime Limits To Confirm
 
@@ -59,6 +62,10 @@ Use Android Studio with a local emulator or device selected by the repository ow
 
 ## Theme And Accessibility
 
+- [ ] Switch to Light in Settings and confirm the app updates immediately.
+- [ ] Switch to Dark in Settings and confirm the app updates immediately.
+- [ ] Switch to Use system setting and confirm the app follows the device appearance.
+- [ ] Restart the app and confirm the selected appearance preference is retained.
 - [ ] Confirm light mode renders all checked screens clearly.
 - [ ] Confirm dark mode renders all checked screens clearly.
 - [ ] Confirm a narrow display keeps buttons, filters, labels, and cards readable.

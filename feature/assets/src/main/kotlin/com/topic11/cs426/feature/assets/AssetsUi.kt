@@ -68,6 +68,9 @@ internal fun AssetsUi(
                         ListHeader(
                             title = "Assets",
                             actionLabel = "Add asset",
+                            query = state.query,
+                            onQueryChanged = { state.eventSink(AssetsEvent.SearchQueryChanged(it)) },
+                            onClearQuery = { state.eventSink(AssetsEvent.SearchCleared) },
                             onAction = { state.eventSink(AssetsEvent.AddSelected) },
                         )
                     }
@@ -83,17 +86,29 @@ internal fun AssetsUi(
                         ListHeader(
                             title = "Assets",
                             actionLabel = "Add asset",
+                            query = state.query,
+                            onQueryChanged = { state.eventSink(AssetsEvent.SearchQueryChanged(it)) },
+                            onClearQuery = { state.eventSink(AssetsEvent.SearchCleared) },
                             onAction = { state.eventSink(AssetsEvent.AddSelected) },
                         )
                     }
-                    items(
-                        items = state.assets,
-                        key = { asset -> asset.id.value },
-                    ) { asset ->
-                        AssetListCard(
-                            asset = asset,
-                            onClick = { state.eventSink(AssetsEvent.AssetSelected(asset.id)) },
-                        )
+                    if (state.hasNoSearchResults) {
+                        item {
+                            EmptyState(
+                                title = "No assets match this search",
+                                message = "Clear the search to view all saved assets.",
+                            )
+                        }
+                    } else {
+                        items(
+                            items = state.assets,
+                            key = { asset -> asset.id.value },
+                        ) { asset ->
+                            AssetListCard(
+                                asset = asset,
+                                onClick = { state.eventSink(AssetsEvent.AssetSelected(asset.id)) },
+                            )
+                        }
                     }
                 }
                 is AssetsState.Error -> {
@@ -254,20 +269,39 @@ internal fun AssetEditorUi(
 private fun ListHeader(
     title: String,
     actionLabel: String,
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    onClearQuery: () -> Unit,
     onAction: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-        )
-        Button(onClick = onAction) {
-            Text(actionLabel)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Button(onClick = onAction) {
+                Text(actionLabel)
+            }
         }
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChanged,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Search assets") },
+            singleLine = true,
+            trailingIcon = {
+                if (query.isNotBlank()) {
+                    TextButton(onClick = onClearQuery) {
+                        Text("Clear")
+                    }
+                }
+            },
+        )
     }
 }
 

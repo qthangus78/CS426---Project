@@ -48,6 +48,7 @@ internal class ReportsPresenter(
     override fun present(): ReportsState {
         var retryToken by remember { mutableIntStateOf(0) }
         var actionMessage by remember { mutableStateOf<String?>(null) }
+        var query by remember { mutableStateOf("") }
 
         val eventSink = remember(navigator, reportActionHandler) {
             { event: ReportsEvent ->
@@ -63,44 +64,63 @@ internal class ReportsPresenter(
                     is ReportsEvent.ShareHistorySelected -> {
                         actionMessage = reportActionHandler.share(event.entry).messageOrNull()
                     }
+                    is ReportsEvent.SearchQueryChanged -> query = event.query
+                    ReportsEvent.SearchCleared -> query = ""
                 }
                 Unit
             }
         }
 
-        val state by remember(
+        val observedReports by remember(
             observeReportCandidates,
             observeReportHistory,
             retryToken,
-            actionMessage,
-            eventSink,
         ) {
             combine(
                 observeReportCandidates(),
                 observeReportHistory(),
             ) { candidates, history ->
+                ObservedReports.Loaded(candidates, history) as ObservedReports
+            }.catch { emit(ObservedReports.Failed) }
+        }.collectAsState(initial = ObservedReports.Loading)
+
+        return when (val observed = observedReports) {
+            ObservedReports.Loading -> ReportsState.Loading
+            ObservedReports.Failed -> ReportsState.Error(
+                message = "Reports could not be loaded.",
+                eventSink = eventSink,
+            )
+            is ObservedReports.Loaded -> {
+                val candidates = observed.candidates.map { it.toUi() }
+                val history = observed.history.map { it.toUi() }
+                val filteredCandidates = candidates.filterReportCandidates(query)
+                val filteredHistory = history.filterReportHistory(query)
                 if (candidates.isEmpty() && history.isEmpty()) {
                     ReportsState.Empty(eventSink)
                 } else {
                     ReportsState.Content(
-                        candidates = candidates.map { it.toUi() },
-                        history = history.map { it.toUi() },
+                        candidates = filteredCandidates,
+                        history = filteredHistory,
+                        query = query,
+                        hasNoSearchResults = query.isNotBlank() &&
+                            filteredCandidates.isEmpty() &&
+                            filteredHistory.isEmpty(),
                         actionMessage = actionMessage,
                         eventSink = eventSink,
                     )
                 }
-            }.catch {
-                emit(
-                    ReportsState.Error(
-                        message = "Reports could not be loaded.",
-                        eventSink = eventSink,
-                    ),
-                )
             }
-        }.collectAsState(initial = ReportsState.Loading)
-
-        return state
+        }
     }
+}
+
+private sealed interface ObservedReports {
+    data object Loading : ObservedReports
+    data object Failed : ObservedReports
+    data class Loaded(
+        val candidates: List<ReportCandidate>,
+        val history: List<ReportHistoryEntry>,
+    ) : ObservedReports
 }
 
 internal class ReportDetailPresenter(
@@ -216,6 +236,28 @@ private fun ReportHistoryEntry.toUi(): ReportHistoryItemUi =
         generatedLabel = generatedAtMillis.dateLabel("Generated"),
         sizeLabel = sizeBytes.formatBytes(),
     )
+
+private fun List<ReportCandidateUi>.filterReportCandidates(query: String): List<ReportCandidateUi> {
+    val normalized = query.trim()
+    if (normalized.isEmpty()) return this
+    return filter { candidate ->
+        candidate.title.contains(normalized, ignoreCase = true) ||
+            candidate.statusLabel.contains(normalized, ignoreCase = true) ||
+            candidate.progressLabel.contains(normalized, ignoreCase = true) ||
+            candidate.inspectionId.value.contains(normalized, ignoreCase = true)
+    }
+}
+
+private fun List<ReportHistoryItemUi>.filterReportHistory(query: String): List<ReportHistoryItemUi> {
+    val normalized = query.trim()
+    if (normalized.isEmpty()) return this
+    return filter { history ->
+        history.title.contains(normalized, ignoreCase = true) ||
+            history.formatLabel.contains(normalized, ignoreCase = true) ||
+            history.generatedLabel.contains(normalized, ignoreCase = true) ||
+            history.sizeLabel.contains(normalized, ignoreCase = true)
+    }
+}
 
 private fun InspectionReport.toDetailUi(): ReportDetailUi =
     ReportDetailUi(

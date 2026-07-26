@@ -18,5 +18,7 @@ interface AssetRepository {
 
     suspend fun getLocation(id: LocationId): Location?
 
+    suspend fun saveLocation(location: Location)
+
     suspend fun saveAsset(asset: Asset)
 }

@@ -89,8 +89,10 @@ Normally approves significant changes to:
 The following modules are shared or assigned later:
 
 - `:feature:assets`;
+- `:feature:locations`;
 - `:feature:templates`;
-- `:feature:issues`.
+- `:feature:issues`;
+- `:feature:settings`.
 
 Until owners are assigned, changes to these modules should be reviewed by Thắng for architecture boundaries and by the future feature owner when assigned.
 

@@ -14,20 +14,21 @@ Implemented:
 - pure Kotlin `:domain` models, ports, validation, scoring, inspection lifecycle, draft, completion, issue, reporting, and scheduling use cases;
 - Slack Circuit screens, presenter/UI factories, Dashboard, and an editable Inspection workflow with draft save, validation, review, completion, notes, and evidence references;
 - Room-backed Assets workflow with list, detail, add/edit, location association, validation, persistence, and start-inspection handoff;
+- Room-backed Locations workflow with list, search, detail, add/edit, validation, persistence, and safe non-destructive handling for asset associations;
 - Room-backed Templates workflow with list, detail, section/checklist display, add template with an initial checklist item, metadata editing that preserves existing sections/items, validation, persistence, and start-inspection handoff;
 - Room-backed Issues workflow with list filters, detail, Domain-validated lifecycle transitions, persisted status updates, and inspection/asset context;
 - Room-backed Reports workflow with completed-inspection candidates, generated report detail, persisted export history, JSON export, PDF export, and app-layer open/share actions;
+- Settings workflow with System, Light, and Dark appearance modes persisted through an app-layer preference adapter and applied at the app theme root;
 - Room database version 3 with exported schemas, explicit migrations, DAOs, draft recovery, report-history, and pending-sync tests;
 - Data-layer Room summary repository/mapping, sample-data seeder, Android-managed evidence storage, report file exporters, and deterministic fake remote-sync adapter;
 - `FieldFlowCompositionRoot` opens `FieldFlowDatabase` with migrations, schedules sample-data seeding asynchronously, and binds Room-backed inspection, template, asset, issue, and report repositories;
 - unit coverage for Domain, Data, Room database, Dashboard, Assets, Templates, Inspection, Issues, and Reports; plus Compose navigation smoke tests.
 
-Not yet integrated or implemented end-to-end:
+Remaining future scope:
 
 - runtime wiring for fake/background synchronization;
-- complete production implementations for every Domain port and real background/remote synchronization;
 - full multi-section template authoring and active/archive lifecycle controls for assets/templates;
-- settings, authentication, backend integration, report scheduling, and cloud delivery.
+- authentication, backend integration, report scheduling, production remote synchronization, notifications, and cloud delivery.
 
 ## Module Graph
 
@@ -35,7 +36,8 @@ Not yet integrated or implemented end-to-end:
 :app
   -> :data, :domain, :core:database, :core:navigation, :core:designsystem
   -> :feature:dashboard, :feature:inspection, :feature:assets
-  -> :feature:templates, :feature:issues, :feature:reports
+  -> :feature:locations, :feature:templates, :feature:issues, :feature:reports
+  -> :feature:settings
 
 :feature:* -> :domain, :core:navigation, :core:designsystem
 :data      -> :domain, :core:database
@@ -61,6 +63,9 @@ IssuesUi -> IssuesPresenter -> issue Domain use cases
 ReportsUi -> ReportsPresenter -> report Domain use cases
     -> Room repositories + JSON/PDF exporters + app open/share bridge
 
+SettingsUi -> SettingsPresenter -> appearance preference use cases
+    -> app preference adapter -> FieldFlowTheme
+
 Room/Data foundation -> `:core:database` DAOs -> `:data` mappings/adapters
     -> integrated in `FieldFlowCompositionRoot` for product runtime
 ```
@@ -78,7 +83,7 @@ PowerShell:
 
 ```powershell
 .\gradlew.bat projects --no-daemon
-.\gradlew.bat :domain:test :data:testDebugUnitTest :core:database:testDebugUnitTest :app:testDebugUnitTest :feature:dashboard:testDebugUnitTest :feature:assets:testDebugUnitTest :feature:templates:testDebugUnitTest :feature:inspection:testDebugUnitTest :feature:issues:testDebugUnitTest :feature:reports:testDebugUnitTest --no-daemon
+.\gradlew.bat :domain:test :data:testDebugUnitTest :core:database:testDebugUnitTest :app:testDebugUnitTest :feature:dashboard:testDebugUnitTest :feature:assets:testDebugUnitTest :feature:locations:testDebugUnitTest :feature:templates:testDebugUnitTest :feature:inspection:testDebugUnitTest :feature:issues:testDebugUnitTest :feature:reports:testDebugUnitTest :feature:settings:testDebugUnitTest --no-daemon
 .\gradlew.bat lintDebug test assembleDebug --no-daemon
 .\gradlew.bat connectedDebugAndroidTest --no-daemon
 ```
@@ -98,7 +103,7 @@ Use `scripts/agent/verify.ps1` to select the narrowest repository-approved check
 | `:domain` | Huy | business contracts, validation, scoring, lifecycle, tests |
 | `:data`, `:core:database` | Linh | persistence, adapters, mappings, evidence, sync, database tests |
 | `:feature:dashboard`, `:feature:reports`, `:core:designsystem`, docs/demo | Linh | dashboard, reports workflow, design system, documentation |
-| `:feature:assets`, `:feature:templates`, `:feature:issues` | Assigned later | assets/templates workflows and issue lifecycle workspace |
+| `:feature:assets`, `:feature:locations`, `:feature:templates`, `:feature:issues`, `:feature:settings` | Assigned later | assets, locations, templates, issue lifecycle, and settings workflows |
 
 Detailed ownership rules: [docs/architecture/TEAM_OWNERSHIP.md](docs/architecture/TEAM_OWNERSHIP.md).
 

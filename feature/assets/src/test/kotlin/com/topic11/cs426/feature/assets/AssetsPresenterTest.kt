@@ -45,7 +45,11 @@ class AssetsPresenterTest {
             val content = awaitItem() as AssetsState.Content
 
             assertEquals(listOf(InspectionTestFixtures.asset1Id), content.assets.map { it.id })
-            content.eventSink(AssetsEvent.AssetSelected(InspectionTestFixtures.asset1Id))
+            content.eventSink(AssetsEvent.SearchQueryChanged("lab"))
+            val filtered = awaitItem() as AssetsState.Content
+            assertEquals("lab", filtered.query)
+            assertEquals(listOf(InspectionTestFixtures.asset1Id), filtered.assets.map { it.id })
+            filtered.eventSink(AssetsEvent.AssetSelected(InspectionTestFixtures.asset1Id))
 
             assertEquals(
                 AssetDetailScreen(InspectionTestFixtures.asset1Id.value),

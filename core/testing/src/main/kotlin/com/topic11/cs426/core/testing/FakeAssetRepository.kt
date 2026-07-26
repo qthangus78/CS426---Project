@@ -51,6 +51,10 @@ class FakeAssetRepository(
     override suspend fun getLocation(id: LocationId): Location? =
         locations.value.firstOrNull { it.id == id }
 
+    override suspend fun saveLocation(location: Location) {
+        addLocation(location)
+    }
+
     override suspend fun saveAsset(asset: Asset) {
         assets.update { values ->
             if (values.any { it.id == asset.id }) {

@@ -50,7 +50,11 @@ class ReportsPresenterTest {
             val content = awaitItem() as ReportsState.Content
 
             assertEquals(listOf(InspectionTestFixtures.computerLab.id), content.candidates.map { it.inspectionId })
-            content.eventSink(ReportsEvent.CandidateSelected(InspectionTestFixtures.computerLab.id))
+            content.eventSink(ReportsEvent.SearchQueryChanged("computer"))
+            val filtered = awaitItem() as ReportsState.Content
+            assertEquals("computer", filtered.query)
+            assertEquals(listOf(InspectionTestFixtures.computerLab.id), filtered.candidates.map { it.inspectionId })
+            filtered.eventSink(ReportsEvent.CandidateSelected(InspectionTestFixtures.computerLab.id))
 
             assertEquals(
                 ReportDetailScreen(InspectionTestFixtures.computerLab.id.value),

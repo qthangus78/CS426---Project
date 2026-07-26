@@ -5,25 +5,96 @@ import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.ChecklistAnswerType
+import com.topic11.cs426.domain.model.Location
 import com.topic11.cs426.domain.model.LocationId
 import com.topic11.cs426.domain.model.TemplateId
+import com.topic11.cs426.domain.model.ThemeMode
+import com.topic11.cs426.domain.repository.AppearancePreferenceRepository
 import com.topic11.cs426.domain.usecase.AssetInput
 import com.topic11.cs426.domain.usecase.AssetSaveResult
 import com.topic11.cs426.domain.usecase.AssetValidationError
 import com.topic11.cs426.domain.usecase.CreateAssetUseCase
+import com.topic11.cs426.domain.usecase.CreateLocationUseCase
 import com.topic11.cs426.domain.usecase.CreateTemplateUseCase
+import com.topic11.cs426.domain.usecase.LocationInput
+import com.topic11.cs426.domain.usecase.LocationSaveResult
+import com.topic11.cs426.domain.usecase.LocationValidationError
+import com.topic11.cs426.domain.usecase.ObserveThemeModeUseCase
+import com.topic11.cs426.domain.usecase.SetThemeModeUseCase
 import com.topic11.cs426.domain.usecase.TemplateCreateInput
 import com.topic11.cs426.domain.usecase.TemplateMetadataInput
 import com.topic11.cs426.domain.usecase.TemplateSaveResult
 import com.topic11.cs426.domain.usecase.TemplateValidationError
 import com.topic11.cs426.domain.usecase.UpdateAssetUseCase
+import com.topic11.cs426.domain.usecase.UpdateLocationUseCase
 import com.topic11.cs426.domain.usecase.UpdateTemplateMetadataUseCase
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AssetTemplateWorkflowUseCaseTest {
+    @Test
+    fun `create location saves normalized location`() = runTest {
+        val repository = FakeAssetRepository(initialAssets = emptyList(), initialLocations = emptyList())
+        val useCase = CreateLocationUseCase(
+            assetRepository = repository,
+            idFactory = { LocationId("location-created") },
+        )
+
+        val result = useCase(LocationInput(name = "  Building A  ", parentId = null))
+
+        assertTrue(result is LocationSaveResult.Success)
+        val location = (result as LocationSaveResult.Success).location
+        assertEquals(LocationId("location-created"), location.id)
+        assertEquals("Building A", location.name)
+        assertEquals(location, repository.getLocation(location.id))
+    }
+
+    @Test
+    fun `location validation rejects blank name stale parent and self parent`() = runTest {
+        val repository = FakeAssetRepository(initialAssets = emptyList(), initialLocations = emptyList())
+        val createResult = CreateLocationUseCase(
+            assetRepository = repository,
+            idFactory = { LocationId("location-created") },
+        )(
+            LocationInput(name = " ", parentId = LocationId("missing-parent")),
+        )
+
+        repository.addLocation(Location(LocationId("location-existing"), "Existing"))
+        val updateResult = UpdateLocationUseCase(repository)(
+            LocationId("location-existing"),
+            LocationInput(name = "Existing", parentId = LocationId("location-existing")),
+        )
+
+        assertTrue(createResult is LocationSaveResult.ValidationFailed)
+        assertEquals(
+            listOf(LocationValidationError.NameRequired, LocationValidationError.ParentNotFound),
+            (createResult as LocationSaveResult.ValidationFailed).errors,
+        )
+        assertTrue(updateResult is LocationSaveResult.ValidationFailed)
+        assertEquals(
+            listOf(LocationValidationError.ParentCannotBeSelf),
+            (updateResult as LocationSaveResult.ValidationFailed).errors,
+        )
+    }
+
+    @Test
+    fun `theme mode use cases observe persisted updates`() = runTest {
+        val repository = RecordingAppearancePreferenceRepository()
+        val observeThemeMode = ObserveThemeModeUseCase(repository)
+        val setThemeMode = SetThemeModeUseCase(repository)
+
+        assertEquals(ThemeMode.SYSTEM, observeThemeMode().first())
+
+        setThemeMode(ThemeMode.DARK)
+
+        assertEquals(ThemeMode.DARK, observeThemeMode().first())
+    }
+
     @Test
     fun `create asset validates location and duplicate code`() = runTest {
         val repository = FakeAssetRepository()
@@ -222,6 +293,32 @@ class AssetTemplateWorkflowUseCaseTest {
     }
 
     @Test
+    fun `create template rejects unsupported answer type`() = runTest {
+        val result = CreateTemplateUseCase(
+            templateRepository = FakeTemplateRepository(),
+            idFactory = { TemplateId("template-created") },
+        )(
+            TemplateCreateInput(
+                name = "Room readiness",
+                recurrencePolicyDays = null,
+                sectionTitle = "General",
+                itemTitle = "Choose condition",
+                itemDescription = null,
+                required = true,
+                critical = false,
+                weight = 1,
+                answerType = ChecklistAnswerType.SINGLE_CHOICE,
+            ),
+        )
+
+        assertTrue(result is TemplateSaveResult.ValidationFailed)
+        assertEquals(
+            listOf(TemplateValidationError.AnswerTypeUnsupported),
+            (result as TemplateSaveResult.ValidationFailed).errors,
+        )
+    }
+
+    @Test
     fun `update template metadata preserves checklist structure`() = runTest {
         val original = InspectionTestFixtures.sampleTemplate
         val repository = FakeTemplateRepository(mapOf(original.id to original))
@@ -262,5 +359,15 @@ class AssetTemplateWorkflowUseCaseTest {
             (result as TemplateSaveResult.ValidationFailed).errors,
         )
         assertEquals(original, repository.getTemplate(original.id))
+    }
+}
+
+private class RecordingAppearancePreferenceRepository : AppearancePreferenceRepository {
+    private val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+
+    override fun observeThemeMode(): Flow<ThemeMode> = themeMode
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        themeMode.value = mode
     }
 }

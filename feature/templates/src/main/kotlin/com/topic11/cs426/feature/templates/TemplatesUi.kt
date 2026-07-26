@@ -69,6 +69,9 @@ internal fun TemplatesUi(
                         ListHeader(
                             title = "Inspection templates",
                             actionLabel = "Add template",
+                            query = state.query,
+                            onQueryChanged = { state.eventSink(TemplatesEvent.SearchQueryChanged(it)) },
+                            onClearQuery = { state.eventSink(TemplatesEvent.SearchCleared) },
                             onAction = { state.eventSink(TemplatesEvent.AddSelected) },
                         )
                     }
@@ -84,17 +87,29 @@ internal fun TemplatesUi(
                         ListHeader(
                             title = "Inspection templates",
                             actionLabel = "Add template",
+                            query = state.query,
+                            onQueryChanged = { state.eventSink(TemplatesEvent.SearchQueryChanged(it)) },
+                            onClearQuery = { state.eventSink(TemplatesEvent.SearchCleared) },
                             onAction = { state.eventSink(TemplatesEvent.AddSelected) },
                         )
                     }
-                    items(
-                        items = state.templates,
-                        key = { template -> template.id.value },
-                    ) { template ->
-                        TemplateListCard(
-                            template = template,
-                            onClick = { state.eventSink(TemplatesEvent.TemplateSelected(template.id)) },
-                        )
+                    if (state.hasNoSearchResults) {
+                        item {
+                            EmptyState(
+                                title = "No templates match this search",
+                                message = "Clear the search to view all saved templates.",
+                            )
+                        }
+                    } else {
+                        items(
+                            items = state.templates,
+                            key = { template -> template.id.value },
+                        ) { template ->
+                            TemplateListCard(
+                                template = template,
+                                onClick = { state.eventSink(TemplatesEvent.TemplateSelected(template.id)) },
+                            )
+                        }
                     }
                 }
                 is TemplatesState.Error -> {
@@ -261,20 +276,39 @@ internal fun TemplateEditorUi(
 private fun ListHeader(
     title: String,
     actionLabel: String,
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    onClearQuery: () -> Unit,
     onAction: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-        )
-        Button(onClick = onAction) {
-            Text(actionLabel)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Button(onClick = onAction) {
+                Text(actionLabel)
+            }
         }
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChanged,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Search templates") },
+            singleLine = true,
+            trailingIcon = {
+                if (query.isNotBlank()) {
+                    TextButton(onClick = onClearQuery) {
+                        Text("Clear")
+                    }
+                }
+            },
+        )
     }
 }
 
@@ -499,7 +533,7 @@ private fun TemplateForm(
                     text = "Answer type",
                     style = MaterialTheme.typography.labelLarge,
                 )
-                ChecklistAnswerType.entries.forEach { answerType ->
+                supportedTemplateAnswerTypes.forEach { answerType ->
                     AnswerTypeRow(
                         answerType = answerType,
                         selected = answerType == state.form.answerType,
@@ -674,6 +708,11 @@ private fun ChecklistAnswerType.label(): String {
         ChecklistAnswerType.SINGLE_CHOICE -> "Single choice"
     }
 }
+
+private val supportedTemplateAnswerTypes = listOf(
+    ChecklistAnswerType.PASS_FAIL_NA,
+    ChecklistAnswerType.TEXT,
+)
 
 private fun TemplatesState.eventSinkOrNull(): ((TemplatesEvent) -> Unit)? {
     return when (this) {
