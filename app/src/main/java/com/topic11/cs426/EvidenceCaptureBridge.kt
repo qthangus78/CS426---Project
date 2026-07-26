@@ -12,7 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.topic11.cs426.domain.model.ChecklistItemId
 import com.topic11.cs426.domain.model.EvidenceReference
+import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.repository.EvidenceSource
 import com.topic11.cs426.domain.repository.EvidenceStore
 import com.topic11.cs426.feature.inspection.InspectionEvidenceCaptureHandler
@@ -118,9 +120,9 @@ internal suspend fun persistEvidenceSelection(
 ): EvidenceReference {
     val reference = evidenceStore.persist(
         EvidenceSource(
-            inspectionId = request.inspectionId,
-            checklistItemId = request.itemId,
-            uriString = uriString,
+            inspectionId = InspectionId(request.inspectionId),
+            checklistItemId = ChecklistItemId(request.itemId),
+            sourceReference = uriString,
             mimeType = mimeType,
         ),
     )

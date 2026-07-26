@@ -15,8 +15,8 @@ import com.topic11.cs426.domain.model.EvidenceReference
  *
  * The checklist models below ([InspectionSectionUi], [ChecklistItemUi], [ChecklistAnswerUi],
  * [ValidationError]) are feature-owned presentation models. The app boundary passes persisted
- * [EvidenceReference] results back through events, while the Presenter maps domain sessions onto
- * UI models.
+ * [EvidenceReference] results back through events, while the Presenter maps Domain sessions,
+ * templates, answers, and validation errors onto UI models.
  */
 @Immutable
 sealed interface InspectionState : CircuitUiState {

@@ -8,6 +8,11 @@ interface ReportExporter {
 
 data class ExportedReport(
     val reportId: String,
-    val uriString: String,
+    val storageKey: String,
     val mimeType: String,
-)
+) {
+    init {
+        require(storageKey.isNotBlank()) { "Exported report storage key cannot be blank." }
+        require(mimeType.isNotBlank()) { "Exported report MIME type cannot be blank." }
+    }
+}

@@ -7,7 +7,6 @@ import com.topic11.cs426.core.navigation.DashboardScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReportsPresenterTest {
@@ -21,30 +20,32 @@ class ReportsPresenterTest {
 
             assertEquals("Reports", state.topBarTitle)
             assertEquals("Inspection reports", state.title)
-            assertEquals("Report generation is a future milestone.", state.message)
-            assertTrue(state.details.contains("Domain report ports"))
-            assertTrue(state.details.contains("Data adapters"))
+            assertEquals("No completed reports are available yet.", state.message)
+            assertEquals(
+                "Complete inspections to make report summaries available here.",
+                state.details,
+            )
             assertEquals(
                 listOf(
                     ReportCapabilityUi(
                         title = "Completed inspection summaries",
-                        description = "Present report-ready inspection results after the workflow is implemented.",
+                        description = "Present report-ready inspection results from completed local inspections.",
                     ),
                     ReportCapabilityUi(
                         title = "Report eligibility",
-                        description = "Show which completed inspections can be exported after validation exists.",
+                        description = "Show which completed inspections are ready for export.",
                     ),
                     ReportCapabilityUi(
-                        title = "PDF export through a Domain port",
-                        description = "Keep document generation behind a replaceable boundary.",
+                        title = "PDF export",
+                        description = "Create a portable inspection report for sharing.",
                     ),
                     ReportCapabilityUi(
-                        title = "JSON export through a Domain port",
-                        description = "Support structured export without coupling UI to file details.",
+                        title = "JSON export",
+                        description = "Export structured inspection data for record keeping.",
                     ),
                     ReportCapabilityUi(
                         title = "Export and sharing status",
-                        description = "Display future export progress honestly when a real implementation exists.",
+                        description = "Show export progress and sharing results.",
                     ),
                 ),
                 state.futureCapabilities,

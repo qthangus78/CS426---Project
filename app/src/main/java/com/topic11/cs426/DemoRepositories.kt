@@ -86,6 +86,9 @@ internal class DemoAssetRepository : AssetRepository {
 
 private val DEMO_TEMPLATE_ID = TemplateId("template-standard")
 
+/**
+ * Demo [InspectionTemplate] used by [DemoTemplateRepository] and local smoke fixtures.
+ */
 internal val demoTemplate = InspectionTemplate(
     id = DEMO_TEMPLATE_ID,
     name = "Standard Field Inspection",
@@ -277,6 +280,9 @@ internal class DemoIssueRepository : IssueRepository {
     }
 }
 
+/**
+ * Provides [demoTemplate] for demo-only callers.
+ */
 internal class DemoTemplateRepository : TemplateRepository {
     override fun observeTemplates(): Flow<List<InspectionTemplateSummary>> = flowOf(emptyList())
 

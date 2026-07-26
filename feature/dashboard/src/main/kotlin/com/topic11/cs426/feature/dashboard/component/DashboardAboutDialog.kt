@@ -57,23 +57,23 @@ internal fun DashboardAboutDialog(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 DialogDetail(
-                    title = "Architecture",
-                    body = "Circuit-Based Feature-Modular Clean Architecture",
+                    title = "Workspace",
+                    body = "Plan inspections, record evidence, and coordinate maintenance follow-up.",
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Development state",
+                        text = "Product area",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     StatusBadge(
-                        label = "Architecture Bootstrap",
+                        label = "Facility operations",
                         tone = StatusTone.Neutral,
                     )
                 }
                 DialogDetail(
-                    title = "Future milestones",
-                    body = "Local database work, full inspection workflows, and production synchronization remain future work.",
+                    title = "Core workflow",
+                    body = "Track active inspections, save drafts, review checklist results, and follow up on maintenance work.",
                 )
             }
         },

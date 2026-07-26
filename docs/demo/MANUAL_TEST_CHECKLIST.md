@@ -1,90 +1,66 @@
 # FieldFlow Manual Test Checklist
 
-Use a configured Android emulator or device. The current reference target is the existing Medium Phone API 33 emulator when available.
+Use Android Studio with a local emulator or device selected by the repository owner. Do not treat this checklist as already executed by CI.
 
 ## Launch
 
-- [ ] Install the debug build.
+- [ ] Install or run the debug build from Android Studio.
 - [ ] Launch FieldFlow.
-- [ ] Confirm the Dashboard appears without a crash.
-- [ ] Confirm the FieldFlow title appears.
+- [ ] Confirm the Dashboard appears without a crash or ANR.
+- [ ] Confirm the app uses the FieldFlow title and not starter template text.
 
 ## Dashboard
 
-- [ ] Confirm the first visible Dashboard section is a polished FieldFlow brand area.
-- [ ] Confirm Dashboard typography has a clear hierarchy: app bar, product name, section titles, card titles, metadata, and button text.
-- [ ] Confirm `Architecture Bootstrap` appears.
-- [ ] Confirm the bootstrap badge is visually secondary to the FieldFlow product title.
-- [ ] Tap the Dashboard information action.
-- [ ] Confirm the About FieldFlow dialog opens.
-- [ ] Confirm the About FieldFlow dialog closes normally.
-- [ ] Confirm the Continue inspection card shows the current in-progress sample inspection, `Computer Lab I.44`.
-- [ ] Confirm the hero item is derived from the current summaries, preferring in-progress work.
-- [ ] Confirm the Continue inspection hero looks like the primary action area and the `Resume` action is visually prominent.
-- [ ] Tap `Resume` in the Continue inspection card.
-- [ ] Confirm the Inspection screen opens for `Computer Lab I.44`.
-- [ ] Press Back and confirm the Dashboard returns.
-- [ ] Confirm `Inspection overview` appears.
-- [ ] Confirm the overview values match all current inspection data: 3 total, 1 in progress, and 1 sync pending with the current sample repository.
-- [ ] Confirm overview metric tiles look like polished KPI cards and do not introduce unsupported metrics.
-- [ ] Confirm Quick actions shows Assets, Templates, Issues, and Reports as compact clickable cards.
-- [ ] Confirm quick action cards look clickable and balanced, with readable title and supporting text.
-- [ ] Confirm the All filter shows `Computer Lab I.44`, `Projector P-204`, and `Laboratory A2 Safety Check`.
-- [ ] Confirm the In progress filter shows `Computer Lab I.44`.
-- [ ] Confirm the Not started filter shows `Projector P-204`.
-- [ ] Confirm the Sync pending filter shows `Laboratory A2 Safety Check`.
-- [ ] Confirm the filters change only the visible inspection list.
-- [ ] Confirm the filtered empty state remains readable in preview or alternate data.
-- [ ] Confirm at least one inspection card appears.
-- [ ] Confirm each card shows a status label and item progress.
-- [ ] Confirm inspection cards use refined surfaces, spacing, progress styling, and navigation affordance.
-- [ ] Confirm full inspection cards are clickable, not just the `Open` label.
-- [ ] Confirm long inspection titles remain readable and do not cover the status or progress.
-- [ ] Confirm the no-inspection empty state remains readable in preview or alternate data.
-- [ ] Confirm portrait layout on Medium Phone API 33 looks polished and easy to scan.
+- [ ] Confirm overview metrics render clearly.
+- [ ] Confirm the continue-inspection card shows the in-progress sample inspection.
+- [ ] Tap the Dashboard information action and confirm the About dialog opens and closes.
+- [ ] Confirm the All, In progress, Not started, and Sync pending filters update the visible list only.
+- [ ] Confirm every inspection card shows a title, status, progress, and navigation affordance.
+- [ ] Confirm long titles and metadata remain readable.
 
-## Inspection Navigation
+## Inspection Workflow
 
-- [ ] Tap `Computer Lab I.44`.
-- [ ] Confirm the Inspection screen appears.
-- [ ] Confirm the selected inspection title appears.
-- [ ] Confirm Back returns to Dashboard.
-- [ ] Open each visible inspection card and confirm it opens the matching Inspection screen.
+- [ ] Open `Computer Lab I.44`.
+- [ ] Confirm the selected inspection title and status are shown.
+- [ ] Change checklist answers between Pass, Fail, Not Applicable, and measured values where available.
+- [ ] Add and edit item notes.
+- [ ] Add an evidence reference label where the UI offers evidence entry.
+- [ ] Save the draft and confirm the screen remains usable.
+- [ ] Move to review and confirm answered, unanswered, and evidence states are represented honestly.
+- [ ] Attempt completion with missing required answers and confirm validation blocks completion.
+- [ ] Mark a critical item as Fail without evidence and confirm validation blocks completion.
+- [ ] Add evidence for the critical failure and confirm completion is allowed after all required answers are valid.
+- [ ] Confirm the completed screen shows a score and issue creation summary.
+- [ ] Press Back and confirm navigation returns to Dashboard.
 
-## Placeholder Navigation
+## Feature Destinations
 
-- [ ] Open Assets and press Back.
-- [ ] Open Templates and press Back.
-- [ ] Open Issues and press Back.
-- [ ] Confirm Assets, Templates, and Issues still present honest placeholder boundaries.
+- [ ] Open Assets and confirm it is an honest placeholder, then return.
+- [ ] Open Templates and confirm it is an honest placeholder, then return.
+- [ ] Open Issues and confirm it is an honest placeholder, then return.
+- [ ] Open Reports and confirm report history/export are not shown as completed runtime features, then return.
 
-## Reports
+## Runtime Limits To Confirm
 
-- [ ] Open Reports.
-- [ ] Confirm the polished `Inspection reports` placeholder appears.
-- [ ] Confirm Reports typography, empty-state composition, and future-capability cards look finished as a placeholder.
-- [ ] Confirm future capabilities are presented as future work, not real reports.
-- [ ] Confirm no fake report data appears.
-- [ ] Press Back and confirm the Dashboard returns.
+- [ ] Confirm no UI claims that Assets, Templates, Issues, or Reports are production-complete.
+- [ ] Confirm no fake report history, fake export progress, or fake downloaded file is shown.
+- [ ] Confirm evidence entry is presented as a reference/demo behavior unless a real picker is manually wired.
+- [ ] Confirm process-restart draft recovery is not claimed for the current demo app binding.
+- [ ] If the owner temporarily wires the Room repository, confirm draft recovery after process restart manually.
+- [ ] If the owner temporarily wires the Room repository, confirm pending sync state survives restart manually.
 
-## Stability
+## Navigation And Stability
 
 - [ ] Repeat Dashboard-to-Inspection navigation twice.
-- [ ] Repeat Quick access navigation across all placeholders.
-- [ ] Repeat Dashboard-to-Reports navigation twice.
+- [ ] Navigate repeatedly between Dashboard, Assets, Templates, Issues, and Reports.
+- [ ] Use Back from every destination.
+- [ ] Rotate portrait to landscape and back.
+- [ ] Confirm no duplicate destination, blank screen, crash, or ANR appears.
 
-## Theme And Responsiveness
+## Theme And Accessibility
 
-- [ ] Confirm Dashboard and Reports look correct in light mode.
-- [ ] Confirm Dashboard and Reports look correct in dark mode.
-- [ ] Confirm Dashboard and Reports remain usable in portrait.
-- [ ] Rotate to landscape and confirm the Dashboard does not crash.
-- [ ] Rotate to landscape and confirm Reports does not crash.
-- [ ] Test a narrow screen width and confirm Dashboard filters, cards, and Reports text remain readable.
-- [ ] Return to portrait and confirm the Dashboard remains readable.
-- [ ] Return to portrait and confirm Reports remains readable.
-- [ ] Confirm the empty Dashboard state is covered by the Dashboard presenter test and Compose preview.
-- [ ] Increase font scaling where practical and confirm the Dashboard remains usable.
-- [ ] Increase font scaling where practical and confirm Reports remains usable.
-- [ ] Trigger normal activity recreation where practical.
-- [ ] Confirm the app remains responsive and no crash dialog appears.
+- [ ] Confirm light mode renders all checked screens clearly.
+- [ ] Confirm dark mode renders all checked screens clearly.
+- [ ] Confirm a narrow display keeps buttons, filters, labels, and cards readable.
+- [ ] Increase system font size and confirm key controls remain usable.
+- [ ] Confirm common touch targets are reachable and not clipped.

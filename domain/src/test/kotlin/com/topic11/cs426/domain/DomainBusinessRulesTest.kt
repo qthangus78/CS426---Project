@@ -6,16 +6,20 @@ import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.core.testing.RecordingInspectionRepository
 import com.topic11.cs426.domain.model.ChecklistAnswerValue
 import com.topic11.cs426.domain.model.CompleteInspectionResult
+import com.topic11.cs426.domain.model.InspectionScore
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionValidationError
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
 import com.topic11.cs426.domain.usecase.CriticalFailure
+import com.topic11.cs426.domain.usecase.GenerateInspectionReportUseCase
 import com.topic11.cs426.domain.usecase.ScheduleNextInspectionUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -200,7 +204,7 @@ class DomainBusinessRulesTest {
     }
 
     @Test
-    fun `nextInspectionDateFallsBackToAssetPolicy`() = runTest {
+    fun `nextInspectionDateFallsBackToAssetPolicyWhenTemplateHasNoPolicy`() = runTest {
         val nextDue = ScheduleNextInspectionUseCase()(
             fixtures.templateWithNoRecurrence,
             fixtures.sampleAssetWithPolicy,
@@ -234,4 +238,35 @@ class DomainBusinessRulesTest {
         createIssue = CreateMaintenanceIssueUseCase(),
         scheduleNext = ScheduleNextInspectionUseCase(),
     )
+
+    @Test
+    fun `generateReportRequiresCompletedInspection`() {
+        val session = fixtures.createSampleSession(status = InspectionStatus.IN_PROGRESS)
+        val inspectionRepo = RecordingInspectionRepository()
+        inspectionRepo.addSession(session)
+        val reportUseCase = GenerateInspectionReportUseCase(inspectionRepo)
+
+        assertThrows(IllegalStateException::class.java) {
+            runTest {
+                reportUseCase(session.id)
+            }
+        }
+    }
+
+    @Test
+    fun `generateReportUsesCompletedInspectionScore`() = runTest {
+        val session = fixtures.createSampleSession(
+            status = InspectionStatus.COMPLETED,
+        ).copy(score = InspectionScore(earnedWeight = 6, totalWeight = 10))
+        val inspectionRepo = RecordingInspectionRepository()
+        inspectionRepo.addSession(session)
+        val reportUseCase = GenerateInspectionReportUseCase(inspectionRepo)
+
+        val report = reportUseCase(session.id)
+
+        assertEquals(session.id, report.inspectionId)
+        assertEquals("Inspection report for Computer Lab I.44", report.summary)
+        assertEquals(InspectionScore(earnedWeight = 6, totalWeight = 10), report.score)
+        assertNotNull(report.id.value)
+    }
 }

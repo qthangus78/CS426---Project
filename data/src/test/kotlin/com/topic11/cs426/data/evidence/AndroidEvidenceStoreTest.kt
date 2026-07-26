@@ -81,9 +81,9 @@ class AndroidEvidenceStoreTest {
 
         val reference = store.persist(
             EvidenceSource(
-                inspectionId = "inspection-lab-i44",
-                checklistItemId = "item-extinguisher",
-                uriString = "content://fieldflow/photo",
+                inspectionId = InspectionId("inspection-lab-i44"),
+                checklistItemId = ChecklistItemId("item-extinguisher"),
+                sourceReference = "content://fieldflow/photo",
                 mimeType = "image/jpeg",
             ),
         )
@@ -91,7 +91,7 @@ class AndroidEvidenceStoreTest {
         assertEquals(EvidenceId("evidence-domain"), reference.id)
         assertEquals(InspectionId("inspection-lab-i44"), reference.inspectionId)
         assertEquals(ChecklistItemId("item-extinguisher"), reference.checklistItemId)
-        assertEquals("fieldflow-evidence://managed/evidence-domain", reference.uriString)
+        assertEquals("evidence/evidence-domain", reference.storageKey)
         assertEquals("image/jpeg", reference.mimeType)
         assertEquals("inspection-lab-i44", metadata?.inspectionId)
         assertEquals("item-extinguisher", metadata?.checklistItemId)

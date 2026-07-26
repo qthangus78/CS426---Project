@@ -1,67 +1,105 @@
 # FieldFlow Demo Script
 
-Use this script for a short seminar demonstration of the current Architecture Bootstrap.
+Use this script for a short seminar demonstration of the current FieldFlow app. Runtime testing remains manual; this script intentionally separates implemented demo behavior from implemented-but-not-wired infrastructure.
 
 ## 1. Launch
 
-Open FieldFlow on the emulator. Start on the Dashboard and point out that the app is running through the Slack Circuit shell, not a starter screen.
+Open FieldFlow from Android Studio or an installed debug APK. The first screen should be the Dashboard in the Slack Circuit shell.
 
 ## 2. Dashboard
 
-Show the FieldFlow brand area, the Architecture Bootstrap status, the continue-inspection hero, the inspection overview, quick actions, status filters, and the deterministic inspection summaries:
+Show the FieldFlow header, overview metrics, continue-inspection card, status filters, and deterministic inspection summaries:
 
 - Computer Lab I.44;
 - Projector P-204;
 - Laboratory A2 Safety Check.
 
-Explain that these summaries come through the current Domain use case and fake repository port implementation.
-
-Tap the small information action in the Dashboard top area. Show the About FieldFlow dialog, then close it. Explain that this is local Dashboard presentation state and does not add a Settings screen, navigation destination, persistence, or app-module version lookup.
-
-## 3. Inspection Summary Navigation
-
-Tap `Computer Lab I.44`. Show the Inspection screen with status, item progress, and the message that the full checklist workflow is future work. Press Back and return to the Dashboard.
-
-## 4. Placeholder Boundaries
-
-From Quick access, open Assets, Templates, Issues, and Reports. For Assets, Templates, and Issues, show that each boundary is navigable, has Back behavior, and clearly says the feature is not implemented yet.
-
-For Reports, show the polished Inspection reports placeholder. Point out that it describes future capabilities without fake report history, export progress, PDF generation, JSON generation, share intents, Room, or report repositories.
-
-## 5. Architecture Explanation
-
-Describe the implemented path:
+Explain the runtime path:
 
 ```text
 DashboardUi
 -> DashboardPresenter
 -> ObserveInspectionSummariesUseCase
 -> InspectionRepository
--> FakeInspectionRepository
+-> DemoInspectionRepository
 -> DashboardState
 -> DashboardUi
 ```
 
-Emphasize the boundary:
+Point out that Dashboard depends on Domain use cases, not Data or Room.
 
-- Dashboard depends on Domain use cases, not Data;
-- Data implements the Domain repository port;
-- `:app` assembles concrete implementations;
-- feature modules do not construct repositories.
+## 3. Inspection Workflow
 
-## 6. Implemented vs Future Work
+Open `Computer Lab I.44`.
 
-Implemented now:
+Demonstrate:
 
-- multi-module architecture;
-- pure Kotlin Domain bootstrap;
-- fake inspection repository;
-- Circuit Dashboard-to-Inspection vertical slice;
-- placeholder feature boundaries.
+- checklist sections and items;
+- Pass, Fail, Not Applicable, and measured answers;
+- note editing;
+- adding an evidence reference label;
+- Save draft;
+- Review;
+- validation errors when required answers or critical-failure evidence are missing;
+- Complete after validation passes;
+- completion score and issue creation summary.
 
-Future work:
+Explain that validation, scoring, completion, and critical-failure issue creation are Domain use-case behavior. The current app binding persists this workflow through deterministic demo repositories for seminar repeatability.
 
-- Settings contracts, navigation, and persisted preferences;
-- Room and offline-first persistence;
-- inspection checklist workflow, validation, scoring, evidence, issues, and report exporters;
-- backend/authentication.
+## 4. Feature Boundaries
+
+From Dashboard quick access, open Assets, Templates, Issues, and Reports.
+
+For Assets, Templates, and Issues, show that each destination is registered, navigable, and explicitly marked as not implemented in the runtime UI.
+
+For Reports, show that report history and PDF/JSON export are not presented as working runtime features. The Domain report model and exporter port exist, but concrete PDF/JSON adapters and user-visible export flow are not wired.
+
+## 5. Offline-First Infrastructure
+
+Show source or tests rather than claiming runtime proof:
+
+```text
+RoomInspectionRepository
+-> FieldFlowDatabase
+-> InspectionDao / CatalogDao / IssueDao / SyncDao
+```
+
+Point out:
+
+- Room schema version 2 is present;
+- Room repository and DAO tests cover draft recovery and pending sync state;
+- `:app` still uses demo repositories, so Android Studio runtime testing does not prove Room persistence until the composition root is changed.
+
+## 6. Architecture Explanation
+
+Trace the boundary:
+
+```text
+feature -> domain <- data
+```
+
+Use these examples:
+
+- `:feature:inspection` calls `CompleteInspectionUseCase`;
+- `:domain` owns `InspectionRepository`, `IssueRepository`, and business rules;
+- `:data` implements `RoomInspectionRepository`;
+- `:app` assembles Circuit factories and the current repository bindings.
+
+## 7. Close With Scope
+
+Implemented for seminar:
+
+- modular Clean Architecture boundary;
+- pure Kotlin Domain rules and ports;
+- Circuit Dashboard and Inspection workflow;
+- deterministic demo runtime;
+- Room/Data infrastructure with unit tests;
+- honest placeholder boundaries for unfinished feature UIs.
+
+Not implemented as runtime app behavior:
+
+- production backend/authentication;
+- real QR/GPS/push/AI;
+- concrete PDF/JSON export flow;
+- real photo picker/evidence upload flow;
+- Room repository wiring in `:app`.

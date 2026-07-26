@@ -39,9 +39,9 @@ class AndroidEvidenceStore internal constructor(
         val entity = persist(
             EvidencePersistRequest(
                 evidenceId = evidenceId,
-                inspectionId = source.inspectionId,
-                checklistItemId = source.checklistItemId,
-                sourceUri = Uri.parse(source.uriString),
+                inspectionId = source.inspectionId.value,
+                checklistItemId = source.checklistItemId.value,
+                sourceUri = Uri.parse(source.sourceReference),
                 mimeType = source.mimeType,
                 createdAtMillis = clock(),
             ),
@@ -87,7 +87,7 @@ private fun EvidenceEntity.toDomainReference(): EvidenceReference {
         id = EvidenceId(id),
         inspectionId = InspectionId(inspectionId),
         checklistItemId = ChecklistItemId(itemId),
-        uriString = "fieldflow-evidence://managed/$id",
+        storageKey = storageKey,
         mimeType = mimeType,
         createdAtMillis = createdAtMillis,
     )

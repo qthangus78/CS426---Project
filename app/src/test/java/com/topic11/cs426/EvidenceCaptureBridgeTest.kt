@@ -39,9 +39,9 @@ class EvidenceCaptureBridgeTest {
         assertNull(failure)
         assertEquals(
             EvidenceSource(
-                inspectionId = "inspection-created",
-                checklistItemId = "item-power",
-                uriString = "content://fieldflow/gallery/photo",
+                inspectionId = InspectionId("inspection-created"),
+                checklistItemId = ChecklistItemId("item-power"),
+                sourceReference = "content://fieldflow/gallery/photo",
                 mimeType = "image/png",
             ),
             store.source,
@@ -53,7 +53,7 @@ class EvidenceCaptureBridgeTest {
             id = EvidenceId("evidence-managed"),
             inspectionId = InspectionId("inspection-created"),
             checklistItemId = ChecklistItemId("item-power"),
-            uriString = "fieldflow-evidence://managed/evidence-managed",
+            storageKey = "evidence/evidence-managed",
             mimeType = "image/png",
             createdAtMillis = 3_000L,
         )

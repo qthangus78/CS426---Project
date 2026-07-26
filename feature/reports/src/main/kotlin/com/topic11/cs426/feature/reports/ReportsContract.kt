@@ -8,8 +8,8 @@ import com.slack.circuit.runtime.CircuitUiState
 internal data class ReportsState(
     val topBarTitle: String = "Reports",
     val title: String = "Inspection reports",
-    val message: String = "Report generation is a future milestone.",
-    val details: String = "Completed inspection summaries and export adapters will appear here after Domain report ports and Data adapters are implemented.",
+    val message: String = "No completed reports are available yet.",
+    val details: String = "Complete inspections to make report summaries available here.",
     val futureCapabilities: List<ReportCapabilityUi> = defaultReportCapabilities,
     val eventSink: (ReportsEvent) -> Unit,
 ) : CircuitUiState
@@ -27,22 +27,22 @@ internal sealed interface ReportsEvent : CircuitUiEvent {
 private val defaultReportCapabilities = listOf(
     ReportCapabilityUi(
         title = "Completed inspection summaries",
-        description = "Present report-ready inspection results after the workflow is implemented.",
+        description = "Present report-ready inspection results from completed local inspections.",
     ),
     ReportCapabilityUi(
         title = "Report eligibility",
-        description = "Show which completed inspections can be exported after validation exists.",
+        description = "Show which completed inspections are ready for export.",
     ),
     ReportCapabilityUi(
-        title = "PDF export through a Domain port",
-        description = "Keep document generation behind a replaceable boundary.",
+        title = "PDF export",
+        description = "Create a portable inspection report for sharing.",
     ),
     ReportCapabilityUi(
-        title = "JSON export through a Domain port",
-        description = "Support structured export without coupling UI to file details.",
+        title = "JSON export",
+        description = "Export structured inspection data for record keeping.",
     ),
     ReportCapabilityUi(
         title = "Export and sharing status",
-        description = "Display future export progress honestly when a real implementation exists.",
+        description = "Show export progress and sharing results.",
     ),
 )

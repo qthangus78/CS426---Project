@@ -25,7 +25,12 @@ interface InspectionDao {
             assets.name AS title,
             inspections.lifecycle_status AS lifecycleStatus,
             inspections.sync_status AS syncStatus,
-            COUNT(DISTINCT inspection_answers.checklist_item_id) AS completedItems,
+            COUNT(
+                DISTINCT CASE
+                    WHEN inspection_answers.answer_type != 'UNANSWERED'
+                    THEN inspection_answers.checklist_item_id
+                END
+            ) AS completedItems,
             COUNT(DISTINCT checklist_items.id) AS totalItems
         FROM inspections
         INNER JOIN assets ON assets.id = inspections.asset_id
@@ -54,7 +59,12 @@ interface InspectionDao {
             assets.name AS title,
             inspections.lifecycle_status AS lifecycleStatus,
             inspections.sync_status AS syncStatus,
-            COUNT(DISTINCT inspection_answers.checklist_item_id) AS completedItems,
+            COUNT(
+                DISTINCT CASE
+                    WHEN inspection_answers.answer_type != 'UNANSWERED'
+                    THEN inspection_answers.checklist_item_id
+                END
+            ) AS completedItems,
             COUNT(DISTINCT checklist_items.id) AS totalItems
         FROM inspections
         INNER JOIN assets ON assets.id = inspections.asset_id
