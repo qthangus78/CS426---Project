@@ -39,18 +39,32 @@ import com.topic11.cs426.feature.reports.ReportsPresenterFactory
 import com.topic11.cs426.feature.reports.ReportsUiFactory
 import com.topic11.cs426.feature.templates.TemplatesPresenterFactory
 import com.topic11.cs426.feature.templates.TemplatesUiFactory
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicReference
 
 class FieldFlowCompositionRoot private constructor(
     val circuit: Circuit,
     val evidenceStore: EvidenceStore,
     private val database: FieldFlowDatabase,
+    private val appScope: CoroutineScope,
+    private val seedFailure: AtomicReference<Throwable?>,
+    internal val sampleDataSeedJob: Job,
 ) : AutoCloseable {
     private var isClosed = false
+
+    internal val sampleDataSeedingFailure: Throwable?
+        get() = seedFailure.get()
 
     override fun close() {
         if (isClosed) return
 
+        appScope.cancel()
         database.close()
         isClosed = true
     }
@@ -68,16 +82,14 @@ class FieldFlowCompositionRoot private constructor(
             )
                 .addMigrations(*FieldFlowMigrations.ALL)
                 .build()
+            val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
             return try {
-                runBlocking {
-                    FieldFlowSampleDataSeeder(database).seedIfEmpty()
-                }
-
                 val catalogDao = database.catalogDao()
                 val inspectionDao = database.inspectionDao()
                 createWithRepositories(
                     database = database,
+                    appScope = appScope,
                     inspectionRepository = RoomInspectionRepository(database),
                     templateRepository = RoomTemplateRepository(catalogDao),
                     assetRepository = RoomAssetRepository(catalogDao),
@@ -86,8 +98,12 @@ class FieldFlowCompositionRoot private constructor(
                         fileStorage = EvidenceFileStorage(applicationContext.filesDir),
                         inspectionDao = inspectionDao,
                     ),
+                    seedSampleData = {
+                        FieldFlowSampleDataSeeder(database).seedIfEmpty()
+                    },
                 )
             } catch (throwable: Throwable) {
+                appScope.cancel()
                 database.close()
                 throw throwable
             }
@@ -95,10 +111,12 @@ class FieldFlowCompositionRoot private constructor(
 
         private fun createWithRepositories(
             database: FieldFlowDatabase,
+            appScope: CoroutineScope,
             inspectionRepository: InspectionRepository,
             templateRepository: TemplateRepository,
             assetRepository: AssetRepository,
             evidenceStore: EvidenceStore,
+            seedSampleData: suspend () -> Unit,
         ): FieldFlowCompositionRoot {
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
             val observeAssets = ObserveAssetsUseCase(assetRepository)
@@ -151,11 +169,34 @@ class FieldFlowCompositionRoot private constructor(
                 .addUiFactory(ReportsUiFactory())
                 .build()
 
+            val seedFailure = AtomicReference<Throwable?>()
+            val sampleDataSeedJob = launchFieldFlowStartupSeeding(
+                scope = appScope,
+                seedSampleData = seedSampleData,
+                onFailure = seedFailure::set,
+            )
+
             return FieldFlowCompositionRoot(
                 circuit = circuit,
                 evidenceStore = evidenceStore,
                 database = database,
+                appScope = appScope,
+                seedFailure = seedFailure,
+                sampleDataSeedJob = sampleDataSeedJob,
             )
         }
+    }
+}
+
+internal fun launchFieldFlowStartupSeeding(
+    scope: CoroutineScope,
+    seedSampleData: suspend () -> Unit,
+    onFailure: (Throwable) -> Unit,
+): Job = scope.launch {
+    try {
+        seedSampleData()
+    } catch (throwable: Throwable) {
+        if (throwable is CancellationException) throw throwable
+        onFailure(throwable)
     }
 }

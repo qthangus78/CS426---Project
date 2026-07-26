@@ -32,6 +32,6 @@ Use these sources to improve agent behavior or verify framework guidance. They d
 Audited on 2026-07-25 against the checked-in project state.
 
 - Room database version 2, DAOs, migrations, schema exports, data mappings, seeding, evidence storage, and fake synchronization are implemented.
-- The checked-in app composition opens Room with migrations, seeds sample data, and binds Room-backed inspection/template/asset repositories.
-- Evidence storage and fake synchronization remain implemented Data-layer capabilities that are not yet driven by app workflows.
+- The checked-in app composition opens Room with migrations, schedules sample-data seeding asynchronously, and binds Room-backed inspection/template/asset repositories.
+- Evidence storage is driven by the inspection workflow; fake synchronization remains an implemented Data-layer capability that is not yet driven by app workflows.
 - Assets, Templates, Issues, and Reports are still feature boundaries rather than complete business workflows.

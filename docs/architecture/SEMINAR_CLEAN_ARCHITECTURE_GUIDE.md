@@ -80,7 +80,7 @@ flowchart TD
     testing --> domain
 ```
 
-The current runtime app assembles deterministic demo repositories in `app/src/main/java/com/topic11/cs426/FieldFlowCompositionRoot.kt`. The Room adapter exists in `data/src/main/kotlin/com/topic11/cs426/data/RoomInspectionRepository.kt`, but it is not the active app binding.
+The current runtime app assembles Room-backed repositories in `app/src/main/java/com/topic11/cs426/FieldFlowCompositionRoot.kt`: `RoomInspectionRepository`, `RoomTemplateRepository`, `RoomAssetRepository`, and `AndroidEvidenceStore`. Sample catalog and inspection data is seeded asynchronously at startup. `DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests; it is not selected by the normal product runtime.
 
 ## 4. Dependency Rule
 
@@ -101,11 +101,11 @@ Evidence:
 
 ## 5. Responsibility of Every Module
 
-`:app` is the composition root. It owns `MainActivity.kt`, `FieldFlowCompositionRoot.kt`, concrete repository selection, use-case construction, and Circuit factory registration.
+`:app` is the composition root. It owns `MainActivity.kt`, `FieldFlowCompositionRoot.kt`, concrete Room repository selection, asynchronous sample seeding, use-case construction, Circuit factory registration, and the code-level `DemoRepositories.kt` fallback.
 
 `:domain` owns business models, use cases, and repository/export/storage ports. Important files include `InspectionSession.kt`, `InspectionTemplate.kt`, `InspectionScore.kt`, `ValidateInspectionUseCase.kt`, `CompleteInspectionUseCase.kt`, and `GenerateInspectionReportUseCase.kt`.
 
-`:data` owns infrastructure adapters for Domain ports. Important files include `RoomInspectionRepository.kt`, `FakeInspectionRepository.kt`, `FieldFlowSampleDataSeeder.kt`, `AndroidEvidenceStore.kt`, and `FakeRemoteSyncAdapter.kt`.
+`:data` owns infrastructure adapters for Domain ports. Important files include `RoomInspectionRepository.kt`, `RoomAssetRepository.kt`, `RoomTemplateRepository.kt`, `FakeInspectionRepository.kt`, `FieldFlowSampleDataSeeder.kt`, `AndroidEvidenceStore.kt`, and `FakeRemoteSyncAdapter.kt`.
 
 `:core:database` owns the Room boundary: `FieldFlowDatabase.kt`, `DatabaseEntities.kt`, DAOs, migrations, schema JSON, and database tests.
 
@@ -125,7 +125,7 @@ Evidence:
 
 ## 6. One Complete End-to-End Flow
 
-The current runtime inspection completion flow is implemented through Domain use cases and demo repository adapters:
+The current runtime inspection completion flow is implemented through Domain use cases and Room repository adapters:
 
 ```mermaid
 sequenceDiagram
@@ -134,28 +134,30 @@ sequenceDiagram
     participant Save as SaveInspectionDraftUseCase
     participant Complete as CompleteInspectionUseCase
     participant Port as InspectionRepository port
-    participant Demo as DemoInspectionRepository
-    participant Issue as IssueRepository port
+    participant Adapter as RoomInspectionRepository
+    participant Database as FieldFlowDatabase / InspectionDao
 
     UI->>Presenter: InspectionEvent.AnswerChanged / NoteChanged / EvidenceAdded
     Presenter->>Presenter: update draft InspectionSession
     UI->>Presenter: InspectionEvent.SaveDraftSelected
     Presenter->>Save: invoke(session)
     Save->>Port: saveDraft(session)
-    Port->>Demo: current app binding
-    Demo-->>Presenter: updated Flow data
+    Port->>Adapter: current app binding
+    Adapter->>Database: transaction
+    Database-->>Adapter: Flow update
+    Adapter-->>Presenter: mapped Domain model
     UI->>Presenter: InspectionEvent.CompleteSelected
     Presenter->>Save: persist latest draft
     Presenter->>Complete: invoke(inspectionId)
     Complete->>Port: getInspection(inspectionId)
     Complete->>Complete: validate, score, schedule next inspection
-    Complete->>Issue: create critical failure issues
+    Complete->>Complete: create critical failure issues
     Complete->>Port: markCompleted(...)
     Complete-->>Presenter: CompleteInspectionResult.Success
     Presenter-->>UI: InspectionState.Completed
 ```
 
-The Room variant of the adapter path is implemented and tested separately:
+The repository path is:
 
 ```text
 RoomInspectionRepository
@@ -164,8 +166,6 @@ RoomInspectionRepository
 -> Flow
 -> Domain model mapper
 ```
-
-That Room path is not the default runtime graph until `FieldFlowCompositionRoot.kt` selects it.
 
 ## 7. Business Rules in Domain
 
@@ -196,12 +196,12 @@ Domain ports include:
 
 Adapters include:
 
-- `DemoInspectionRepository`, `DemoTemplateRepository`, `DemoIssueRepository`, and `DemoAssetRepository` in `:app` for repeatable seminar runtime data.
-- `RoomInspectionRepository.kt` in `:data` for Room-backed inspection persistence.
+- `RoomInspectionRepository.kt`, `RoomTemplateRepository.kt`, and `RoomAssetRepository.kt` in `:data` for the current Room-backed runtime.
+- `DemoInspectionRepository`, `DemoTemplateRepository`, `DemoIssueRepository`, and `DemoAssetRepository` in `:app` as a code-level fallback for deterministic adapter-swap experiments and tests.
 - `FakeInspectionRepository.kt` and `FakeRemoteSyncAdapter.kt` in `:data` for deterministic tests and sync simulation.
 - `AndroidEvidenceStore.kt` and `EvidenceFileStorage.kt` in `:data` for Android file-backed evidence storage infrastructure.
 
-The important point is replacement. `:feature:inspection` uses `CompleteInspectionUseCase`, not `RoomInspectionRepository`. Switching from demo repositories to Room-backed repositories should happen in `:app`, with Domain and feature modules unchanged.
+The important point is replacement. `:feature:inspection` uses `CompleteInspectionUseCase`, not `RoomInspectionRepository`. The current Room-backed binding happens in `:app`, with Domain and feature modules unchanged. The fallback demo adapters are not exposed through product UI.
 
 ## 9. Slack Circuit Presentation
 
@@ -231,16 +231,16 @@ Team ownership is documented in `docs/architecture/TEAM_OWNERSHIP.md`.
 
 ## 11. Offline-First Architecture
 
-The offline-first infrastructure is implemented below the current runtime graph:
+The offline-first runtime is built around Room as the local source of truth:
 
 - Room local schema: `core/database/src/main/kotlin/com/topic11/cs426/core/database/FieldFlowDatabase.kt`.
 - Entities: `core/database/src/main/kotlin/com/topic11/cs426/core/database/entity/DatabaseEntities.kt`.
 - DAOs: `InspectionDao.kt`, `CatalogDao.kt`, `IssueDao.kt`, and `SyncDao.kt`.
-- Repository adapter: `data/src/main/kotlin/com/topic11/cs426/data/RoomInspectionRepository.kt`.
+- Repository adapters: `data/src/main/kotlin/com/topic11/cs426/data/RoomInspectionRepository.kt`, `RoomTemplateRepository.kt`, and `RoomAssetRepository.kt`.
 - Mappers: `InspectionSessionMapper.kt` and `InspectionSummaryMapper.kt`.
 - Migration and persistence tests: `FieldFlowMigrationTest.kt`, `DraftRecoveryTest.kt`, and `PendingSyncTest.kt`.
 
-The architecture supports Room as local source of truth, Flow observation, persisted drafts, and pending synchronization state. The app does not currently prove those runtime behaviors because `:app` still binds demo repositories.
+`FieldFlowCompositionRoot.kt` opens the Room database, schedules sample seeding on an app-scoped IO coroutine, and passes Room-backed adapters into Domain use cases. The architecture supports Room as local source of truth, Flow observation, persisted drafts, and pending synchronization state. Manual Android Studio testing is still required to confirm process-restart behavior on the owner-selected runtime device.
 
 ## 12. Testing Strategy
 
@@ -311,11 +311,11 @@ Use this 5-8 minute architecture demonstration:
 1. Open Dashboard and show inspection summaries.
 2. Open an inspection and change answers.
 3. Save draft, review, trigger validation, add required evidence, and complete.
-4. Trace `InspectionUi.kt -> InspectionPresenter.kt -> CompleteInspectionUseCase.kt -> InspectionRepository.kt -> DemoInspectionRepository`.
+4. Trace `InspectionUi.kt -> InspectionPresenter.kt -> CompleteInspectionUseCase.kt -> InspectionRepository.kt -> RoomInspectionRepository`.
 5. Show `DomainBusinessRulesTest.kt` proving validation/scoring rules without Android.
 6. Show `feature/inspection/build.gradle.kts` has no `:data` dependency.
-7. Show `RoomInspectionRepository.kt` as a replaceable adapter for the same Domain port.
-8. Explain offline-first infrastructure and the current runtime limitation: Room is implemented and tested but not selected in `:app`.
+7. Show `FieldFlowCompositionRoot.kt` as the place where the Room adapter is selected.
+8. Explain offline-first persistence and asynchronous sample seeding.
 9. End with trade-offs: more modules and mapping, but clearer boundaries and testable rules.
 
 ## 18. Suggested Speaker Division
@@ -351,7 +351,7 @@ That would couple UI workflow to database details and spread validation/scoring 
 For a tiny app, maybe. For FieldFlow, the extra ports, mappers, and modules pay for themselves because validation, scoring, offline state, evidence, and reports need stable boundaries.
 
 **How does offline-first work?**
-The implemented data path uses Room as local source of truth, DAOs for reads/writes, repository mapping to Domain models, and Flow observation. Current runtime app still uses demo repositories, so offline-first is demonstrated through Data/Database code and tests unless Room is wired in `:app`.
+The implemented data path uses Room as local source of truth, DAOs for reads/writes, repository mapping to Domain models, and Flow observation. The current runtime app selects the Room adapters in `FieldFlowCompositionRoot.kt`; manual testing should confirm restart behavior on the owner-selected device.
 
 **How can adapters be replaced?**
 Replace the concrete repository construction in `FieldFlowCompositionRoot.kt`. Features and Domain keep the same use cases and ports.
@@ -363,8 +363,8 @@ If `:feature:inspection` does not declare `implementation(project(":data"))`, it
 Change the Domain use case and Domain tests first. Presentation should mostly keep rendering state and emitting events, while Data should keep mapping and persistence behavior.
 
 **What are the architecture's limitations?**
-Runtime app wiring still uses demo repositories, report exporters are ports without concrete PDF/JSON UI wiring, Assets/Templates/Issues are placeholders, and evidence storage infrastructure is not fully connected to the inspection UI.
+Report exporters are ports without concrete PDF/JSON UI wiring, Assets/Templates/Issues remain placeholder feature destinations, evidence capture is limited to the implemented reference/storage path, and real backend synchronization is out of scope.
 
 ## 20. Final Architecture Summary
 
-FieldFlow demonstrates Circuit-Based Feature-Modular Clean Architecture: feature modules own UI, Domain owns inspection rules and ports, Data implements replaceable adapters, Room is isolated behind repositories, and `:app` assembles the graph. The architecture is valuable because FieldFlow has real business rules and offline-first concerns, but the seminar should clearly state which parts are runtime demo behavior and which parts are implemented infrastructure awaiting app wiring.
+FieldFlow demonstrates Circuit-Based Feature-Modular Clean Architecture: feature modules own UI, Domain owns inspection rules and ports, Data implements replaceable adapters, Room is isolated behind repositories, and `:app` assembles the runtime graph. The architecture is valuable because FieldFlow has real business rules and offline-first concerns, but the seminar should clearly state which feature destinations are implemented, which are placeholders, and which adapters are code-level fallbacks.

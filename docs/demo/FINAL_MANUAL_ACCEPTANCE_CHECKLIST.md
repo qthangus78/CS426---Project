@@ -82,16 +82,16 @@ This checklist is for repository-owner runtime confirmation in Android Studio. I
 ## Draft Recovery
 
 - [ ] Save an inspection draft.
-- [ ] Reopen the same inspection without killing the process and confirm changes are retained in the current demo runtime.
-- [ ] Restart the app process and confirm the current demo binding does not claim persistent recovery.
-- [ ] If the owner temporarily wires `RoomInspectionRepository`, manually confirm saved drafts survive process restart.
+- [ ] Reopen the same inspection without killing the process and confirm changes are retained.
+- [ ] Restart the app process and manually confirm the Room-backed runtime restores the saved draft.
+- [ ] Confirm no product UI exposes a Demo/Room repository selector.
 
 ## Offline Behavior And Pending Sync
 
 - [ ] Confirm the app launches and works without requiring an active backend login.
 - [ ] Confirm sync-pending sample status is visible on Dashboard.
 - [ ] Confirm no UI claims real cloud synchronization is production-complete.
-- [ ] If the owner temporarily wires the Room repository and fake sync adapter, manually confirm pending sync state survives restart and state transitions are visible.
+- [ ] Restart the app and confirm pending-sync status remains visible.
 
 ## Reports And Export
 

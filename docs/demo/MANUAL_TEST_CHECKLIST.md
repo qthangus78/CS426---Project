@@ -45,9 +45,9 @@ Use Android Studio with a local emulator or device selected by the repository ow
 - [ ] Confirm no UI claims that Assets, Templates, Issues, or Reports are production-complete.
 - [ ] Confirm no fake report history, fake export progress, or fake downloaded file is shown.
 - [ ] Confirm evidence entry is presented as a reference/demo behavior unless a real picker is manually wired.
-- [ ] Confirm process-restart draft recovery is not claimed for the current demo app binding.
-- [ ] If the owner temporarily wires the Room repository, confirm draft recovery after process restart manually.
-- [ ] If the owner temporarily wires the Room repository, confirm pending sync state survives restart manually.
+- [ ] Save a draft, restart the app process, and confirm Room-backed draft recovery manually.
+- [ ] Confirm sync-pending sample state remains visible after process restart.
+- [ ] Confirm no UI exposes a Demo/Room repository selector.
 
 ## Navigation And Stability
 

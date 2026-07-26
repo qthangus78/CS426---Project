@@ -21,7 +21,7 @@ Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
 ## Responsibilities
 
-- `:app`: Android application, Circuit assembly, initial navigation stack, and concrete dependency assembly. The current runtime opens Room, applies migrations, seeds sample data, and binds Room-backed repositories.
+- `:app`: Android application, Circuit assembly, initial navigation stack, and concrete dependency assembly. The current runtime opens Room, applies migrations, schedules sample-data seeding asynchronously, and binds Room-backed repositories.
 - `:domain`: pure Kotlin IDs, models, repository ports, validation, scoring, inspection lifecycle, issue, report, draft, and scheduling use cases.
 - `:data`: persistence-to-Domain mapping, Room summary repository, sample-data seeding, evidence-file adapter, and deterministic fake remote synchronization.
 - `:core:navigation`: Parcelable Circuit `Screen` contracts shared across features.
@@ -52,4 +52,4 @@ Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
 ## Composition Root
 
-`FieldFlowCompositionRoot` assembles Domain use cases, feature factories, the Circuit instance, and the app-scoped Room database. It binds Room-backed inspection, template, and asset repositories for the current runtime while keeping Room/Data implementations out of feature modules. Evidence storage and fake synchronization adapters remain Data-layer capabilities until app workflows consume them.
+`FieldFlowCompositionRoot` assembles Domain use cases, feature factories, the Circuit instance, and the app-scoped Room database. It binds Room-backed inspection, template, and asset repositories for the current runtime while keeping Room/Data implementations out of feature modules. Sample data seeding runs on an app-scoped IO coroutine. Evidence storage is consumed by the inspection workflow; fake synchronization remains a Data-layer capability until app workflows consume it.

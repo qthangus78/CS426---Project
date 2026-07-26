@@ -15,12 +15,12 @@ Implemented:
 - Slack Circuit screens, presenter/UI factories, Dashboard, and an editable Inspection workflow with draft save, validation, review, completion, notes, and evidence references;
 - Room database version 2 with exported schemas, explicit migration, DAOs, draft recovery and pending-sync tests;
 - Data-layer Room summary repository/mapping, sample-data seeder, Android-managed evidence storage, and deterministic fake remote-sync adapter;
-- `FieldFlowCompositionRoot` opens `FieldFlowDatabase` with migrations, seeds sample data, and binds Room-backed inspection, template, and asset repositories;
+- `FieldFlowCompositionRoot` opens `FieldFlowDatabase` with migrations, schedules sample-data seeding asynchronously, and binds Room-backed inspection, template, and asset repositories;
 - unit coverage for Domain, Data, Room database, Dashboard, Inspection, and Reports; plus Compose navigation smoke tests.
 
 Not yet integrated or implemented end-to-end:
 
-- runtime wiring for Android-managed evidence storage and fake/background synchronization;
+- runtime wiring for fake/background synchronization;
 - complete production implementations for every Domain port and real background/remote synchronization;
 - asset, template, and issue management UIs;
 - report history and PDF/JSON export adapters;

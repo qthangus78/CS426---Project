@@ -17,8 +17,10 @@ This repository is a multi-module Android project. Agents should treat the exist
 - If a more specific `AGENTS.md` is added under a subtree later, the closer file should own rules for that subtree.
 - Treat the checked-in source, README, and module graph as the current implementation state. The proposal is product context only.
 - Room database version 2, DAOs, migrations, mappings, seeding, evidence storage, and fake sync exist. The app composition root
-  opens Room with migrations, seeds sample data, and binds Room-backed inspection/template/asset repositories; evidence storage
-  and fake sync are not runtime-wired yet.
+  opens Room with migrations, schedules sample-data seeding asynchronously, and binds Room-backed inspection/template/asset
+  repositories; evidence storage is wired through the inspection flow, while fake sync is not runtime-wired yet.
+- `DemoRepositories.kt` remains a code-level fallback for approved adapter-swap experiments and tests. Do not expose Demo/Room
+  selection in product UI.
 
 ## Read Before Editing
 

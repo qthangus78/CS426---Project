@@ -4,14 +4,14 @@
 
 FieldFlow is a multi-module Android inspection workflow app.
 
-- `:app` composes the current runtime, which opens Room with migrations, seeds sample data, and binds Room-backed inspection/template/asset repositories.
+- `:app` composes the current runtime, which opens Room with migrations, schedules sample-data seeding asynchronously, and binds Room-backed inspection/template/asset repositories.
 - `:domain` is pure Kotlin and contains the inspection workflow contracts and rules.
 - `:data` implements the outer data boundary: Room mapping/repository foundations, seeding, evidence storage, and fake sync.
 - `:core:database` owns Room version 2, entities, DAOs, migrations, schemas, and database tests.
 - `:feature:inspection` provides an editable draft/review/validate/complete workflow.
 - Assets, Templates, Issues, and Reports remain presentation boundaries rather than full product workflows.
 
-Do not leak Room/Data implementation details into feature modules. `FieldFlowCompositionRoot` is the only place allowed to assemble app runtime repository bindings.
+Do not leak Room/Data implementation details into feature modules. `FieldFlowCompositionRoot` is the only place allowed to assemble app runtime repository bindings. `DemoRepositories.kt` is a code-level fallback for approved adapter-swap experiments and tests, not a product UI mode.
 
 ## Default Read Set
 

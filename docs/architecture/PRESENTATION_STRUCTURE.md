@@ -42,7 +42,7 @@ Compose UI renders state and emits events. It should not call repositories, cons
 
 ## Domain Use Case Dependency
 
-Feature Presenters depend on Domain use cases. The Dashboard Presenter calls `ObserveInspectionSummariesUseCase`; it does not know whether the data comes from the current demo binding, Room, files, or a future backend.
+Feature Presenters depend on Domain use cases. The Dashboard Presenter calls `ObserveInspectionSummariesUseCase`; it does not know whether the data comes from the current Room binding, a code-level fallback adapter, files, or a future backend.
 
 ## Navigation Responsibility
 

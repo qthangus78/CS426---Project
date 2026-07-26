@@ -145,7 +145,7 @@ Done when supported existing databases open successfully and retain expected rec
 
 1. Coordinate with the App owner before changing `:app`.
 2. Construct database, DAOs, adapters, and repository implementations in the composition root.
-3. The current app binds demo repositories. Replace or select that binding only through an approved runtime mode; retain deterministic fake mode when required for demos/tests.
+3. The current app binds Room-backed repositories. Keep `DemoRepositories.kt` as a code-level fallback for approved adapter-swap experiments and tests; do not expose Demo/Room selection in product UI.
 4. Keep feature constructors dependent on Domain ports or use cases, not concrete Data classes.
 5. Run full verification because app wiring crosses the integration boundary.
 

@@ -1,6 +1,6 @@
 # FieldFlow Demo Script
 
-Use this script for a short seminar demonstration of the current FieldFlow app. Runtime testing remains manual; this script intentionally separates implemented demo behavior from implemented-but-not-wired infrastructure.
+Use this script for a short seminar demonstration of the current FieldFlow app. Runtime testing remains manual; this script intentionally separates runtime-wired behavior from placeholders and infrastructure that is not exposed in the product UI.
 
 ## 1. Launch
 
@@ -8,7 +8,7 @@ Open FieldFlow from Android Studio or an installed debug APK. The first screen s
 
 ## 2. Dashboard
 
-Show the FieldFlow header, overview metrics, continue-inspection card, status filters, and deterministic inspection summaries:
+Show the FieldFlow header, overview metrics, continue-inspection card, status filters, and seeded inspection summaries:
 
 - Computer Lab I.44;
 - Projector P-204;
@@ -21,12 +21,13 @@ DashboardUi
 -> DashboardPresenter
 -> ObserveInspectionSummariesUseCase
 -> InspectionRepository
--> DemoInspectionRepository
+-> RoomInspectionRepository
+-> FieldFlowDatabase / InspectionDao
 -> DashboardState
 -> DashboardUi
 ```
 
-Point out that Dashboard depends on Domain use cases, not Data or Room.
+Point out that Dashboard depends on Domain use cases, not Data or Room. `:app` selects the Room-backed repository at the composition root, and sample catalog/inspection data is seeded asynchronously during startup so `MainActivity.onCreate` is not blocked by database work.
 
 ## 3. Inspection Workflow
 
@@ -44,7 +45,7 @@ Demonstrate:
 - Complete after validation passes;
 - completion score and issue creation summary.
 
-Explain that validation, scoring, completion, and critical-failure issue creation are Domain use-case behavior. The current app binding persists this workflow through deterministic demo repositories for seminar repeatability.
+Explain that validation, scoring, completion, and critical-failure issue creation are Domain use-case behavior. The current app binding persists this workflow through Room-backed repositories.
 
 ## 4. Feature Boundaries
 
@@ -54,9 +55,9 @@ For Assets, Templates, and Issues, show that each destination is registered, nav
 
 For Reports, show that report history and PDF/JSON export are not presented as working runtime features. The Domain report model and exporter port exist, but concrete PDF/JSON adapters and user-visible export flow are not wired.
 
-## 5. Offline-First Infrastructure
+## 5. Offline-First Runtime
 
-Show source or tests rather than claiming runtime proof:
+Show the runtime source path and tests:
 
 ```text
 RoomInspectionRepository
@@ -68,7 +69,8 @@ Point out:
 
 - Room schema version 2 is present;
 - Room repository and DAO tests cover draft recovery and pending sync state;
-- `:app` still uses demo repositories, so Android Studio runtime testing does not prove Room persistence until the composition root is changed.
+- `:app` binds Room repositories in `FieldFlowCompositionRoot.kt`;
+- Android Studio manual testing should still confirm process-restart draft recovery and pending-sync visibility on a device or emulator selected by the repository owner.
 
 ## 6. Architecture Explanation
 
@@ -83,7 +85,7 @@ Use these examples:
 - `:feature:inspection` calls `CompleteInspectionUseCase`;
 - `:domain` owns `InspectionRepository`, `IssueRepository`, and business rules;
 - `:data` implements `RoomInspectionRepository`;
-- `:app` assembles Circuit factories and the current repository bindings.
+- `:app` assembles Circuit factories and the current Room-backed repository bindings.
 
 ## 7. Close With Scope
 
@@ -92,7 +94,7 @@ Implemented for seminar:
 - modular Clean Architecture boundary;
 - pure Kotlin Domain rules and ports;
 - Circuit Dashboard and Inspection workflow;
-- deterministic demo runtime;
+- Room-backed runtime persistence with asynchronous sample seeding;
 - Room/Data infrastructure with unit tests;
 - honest placeholder boundaries for unfinished feature UIs.
 
@@ -102,4 +104,6 @@ Not implemented as runtime app behavior:
 - real QR/GPS/push/AI;
 - concrete PDF/JSON export flow;
 - real photo picker/evidence upload flow;
-- Room repository wiring in `:app`.
+- cloud synchronization or backend authentication.
+
+`DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests. It is not selected by the normal product runtime and must not be exposed as a product UI setting.

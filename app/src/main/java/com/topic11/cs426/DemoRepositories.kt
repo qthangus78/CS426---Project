@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
+// Code-level fallback adapters for deterministic experiments and tests.
+// The normal product runtime is Room-backed in FieldFlowCompositionRoot.
 private val demoAssets = listOf(
     Asset(
         id = AssetId("asset-lab-1"),
