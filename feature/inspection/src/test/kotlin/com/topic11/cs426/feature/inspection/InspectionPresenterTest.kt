@@ -1071,4 +1071,5 @@ private class FakeTemplateRepository : TemplateRepository {
     override fun observeTemplates(): Flow<List<InspectionTemplateSummary>> = flowOf(emptyList())
     override fun observeTemplate(id: TemplateId): Flow<InspectionTemplate?> = flowOf(template)
     override suspend fun getTemplate(id: TemplateId): InspectionTemplate = template
+    override suspend fun saveTemplate(template: InspectionTemplate) = Unit
 }

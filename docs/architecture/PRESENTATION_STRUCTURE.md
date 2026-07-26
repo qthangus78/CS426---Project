@@ -12,8 +12,12 @@ Current examples:
 - `InspectionScreen`;
 - `AssetsScreen`;
 - `TemplatesScreen`;
+- `AssetDetailScreen` and `AssetEditorScreen`;
+- `TemplateDetailScreen` and `TemplateEditorScreen`;
 - `IssuesScreen`;
-- `ReportsScreen`.
+- `IssueDetailScreen`;
+- `ReportsScreen`;
+- `ReportDetailScreen`.
 
 ## Presenter
 
@@ -46,7 +50,7 @@ Feature Presenters depend on Domain use cases. The Dashboard Presenter calls `Ob
 
 ## Navigation Responsibility
 
-Feature Presenters own feature-level navigation decisions such as opening `InspectionScreen` or placeholder screens. `:app` owns Circuit assembly and the initial navigation stack.
+Feature Presenters own feature-level navigation decisions such as opening `InspectionScreen`, Assets detail/editor screens, Templates detail/editor screens, Issue details, Report details, or returning with Back. `:app` owns Circuit assembly and the initial navigation stack.
 
 ## Why Features Do Not Know Data
 
@@ -65,14 +69,20 @@ Dashboard currently renders:
 - a FieldFlow brand area;
 - a derived continue-inspection hero that prefers `IN_PROGRESS` and falls back to `SYNC_PENDING`;
 - overview metrics calculated from the complete inspection summary list;
-- quick actions for existing placeholder boundaries;
+- quick actions for Assets, Templates, Issues, and Reports destinations;
 - status filters that affect only the visible inspection list;
 - loading, empty, content, and filtered-empty states;
 - a local About FieldFlow dialog.
 
 Inspection currently renders an editable workflow with section navigation, answer and note updates, evidence references, draft saving, review, validation errors, and completion feedback. The current app binding persists this workflow through Room-backed repositories.
 
-Reports renders an honest placeholder for report capability. It shows no fake reports or export progress. The Domain report contract exists, but report history and PDF/JSON exporter adapters are not implemented.
+Assets now renders a Room-backed product workflow with list, empty/error states, asset detail, add/edit, location selection, Domain validation, and a start-inspection dialog that reuses the existing inspection-creation use case.
+
+Templates now renders a Room-backed product workflow with list, empty/error states, template detail, section/checklist display, add template with one initial checklist item, metadata-only editing for existing templates, Domain validation, and a start-inspection dialog. Full multi-section/item authoring is intentionally deferred so edits do not drop existing checklist aggregates.
+
+Issues now renders a Room-backed lifecycle workspace with list filters, issue detail, inspection/asset context, loading/empty/error states, and Domain-validated status actions.
+
+Reports now renders completed-inspection candidates, generated report detail, persisted export history, JSON/PDF export actions, and app-layer Open/Share events. The feature depends only on Domain, navigation, and design system contracts; file storage and Android intents remain outside the feature module.
 
 ## Shared Presentation Components
 

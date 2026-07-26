@@ -35,15 +35,15 @@ Use Android Studio with a local emulator or device selected by the repository ow
 
 ## Feature Destinations
 
-- [ ] Open Assets and confirm it is an honest placeholder, then return.
-- [ ] Open Templates and confirm it is an honest placeholder, then return.
-- [ ] Open Issues and confirm it is an honest placeholder, then return.
-- [ ] Open Reports and confirm report history/export are not shown as completed runtime features, then return.
+- [ ] Open Assets and confirm the list/detail/add/edit workflow is usable, then return.
+- [ ] Open Templates and confirm the list/detail/add/edit workflow is usable, then return.
+- [ ] Complete an inspection with a critical failure, open Issues, and confirm the issue appears with filters and detail.
+- [ ] Open Reports and confirm completed inspections, generated detail, export history, JSON export, and PDF export are available.
 
 ## Runtime Limits To Confirm
 
-- [ ] Confirm no UI claims that Assets, Templates, Issues, or Reports are production-complete.
-- [ ] Confirm no fake report history, fake export progress, or fake downloaded file is shown.
+- [ ] Confirm no UI claims backend, cloud sync, authentication, report scheduling, or email delivery are production-complete.
+- [ ] Confirm report history and exported files reflect real completed inspections, not fake records.
 - [ ] Confirm evidence entry is presented as a reference/demo behavior unless a real picker is manually wired.
 - [ ] Save a draft, restart the app process, and confirm Room-backed draft recovery manually.
 - [ ] Confirm sync-pending sample state remains visible after process restart.
@@ -52,7 +52,7 @@ Use Android Studio with a local emulator or device selected by the repository ow
 ## Navigation And Stability
 
 - [ ] Repeat Dashboard-to-Inspection navigation twice.
-- [ ] Navigate repeatedly between Dashboard, Assets, Templates, Issues, and Reports.
+- [ ] Navigate repeatedly between Dashboard, Assets, Templates, Issues, Reports, and their detail/editor screens.
 - [ ] Use Back from every destination.
 - [ ] Rotate portrait to landscape and back.
 - [ ] Confirm no duplicate destination, blank screen, crash, or ANR appears.

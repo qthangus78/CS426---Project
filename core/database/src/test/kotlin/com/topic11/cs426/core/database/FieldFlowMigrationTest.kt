@@ -24,7 +24,7 @@ class FieldFlowMigrationTest {
     )
 
     @Test
-    fun `migration 1 to 2 preserves existing records`() {
+    fun `migration 1 to 3 preserves existing records and adds report history`() {
         val databasePath = ApplicationProvider.getApplicationContext<Context>()
             .getDatabasePath(TEST_DATABASE)
             .absolutePath
@@ -41,6 +41,7 @@ class FieldFlowMigrationTest {
             FieldFlowDatabase.VERSION,
             true,
             FieldFlowMigrations.MIGRATION_1_2,
+            FieldFlowMigrations.MIGRATION_2_3,
         ).use { database ->
             database.query(
                 "SELECT name FROM locations WHERE id = ?",
@@ -48,6 +49,10 @@ class FieldFlowMigrationTest {
             ).use { cursor ->
                 assertEquals(true, cursor.moveToFirst())
                 assertEquals("Computer Laboratory", cursor.getString(0))
+            }
+            database.query("SELECT COUNT(*) FROM report_exports").use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
             }
         }
     }

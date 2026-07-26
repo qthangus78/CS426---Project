@@ -5,6 +5,9 @@ import com.topic11.cs426.core.database.dao.SectionAggregateRecord
 import com.topic11.cs426.core.database.dao.TemplateAggregateRecord
 import com.topic11.cs426.core.database.entity.AssetEntity
 import com.topic11.cs426.core.database.entity.ChecklistItemEntity
+import com.topic11.cs426.core.database.entity.InspectionSectionEntity
+import com.topic11.cs426.core.database.entity.InspectionTemplateEntity
+import com.topic11.cs426.core.database.entity.LocationEntity
 import com.topic11.cs426.domain.model.Asset
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.AssetSummary
@@ -14,9 +17,16 @@ import com.topic11.cs426.domain.model.ChecklistItemId
 import com.topic11.cs426.domain.model.InspectionSection
 import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionTemplateSummary
+import com.topic11.cs426.domain.model.Location
 import com.topic11.cs426.domain.model.LocationId
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
+
+fun LocationEntity.toDomain() = Location(
+    id = LocationId(id),
+    name = name,
+    parentId = parentId?.let(::LocationId),
+)
 
 fun AssetSummaryRecord.toDomain() = AssetSummary(
     id = AssetId(asset.id),
@@ -65,6 +75,46 @@ fun TemplateAggregateRecord.toSummary() = InspectionTemplateSummary(
     version = template.version,
     sectionCount = sections.size,
 )
+
+fun InspectionTemplate.toTemplateEntity() = InspectionTemplateEntity(
+    revisionId = id.value,
+    templateId = id.value,
+    version = version,
+    name = name,
+    recurrenceIntervalDays = recurrencePolicyDays,
+)
+
+fun InspectionTemplate.toSectionEntities(): List<InspectionSectionEntity> {
+    return sections
+        .sortedWith(compareBy({ it.order }, { it.id.value }))
+        .map { section ->
+            InspectionSectionEntity(
+                id = section.id.value,
+                templateRevisionId = id.value,
+                title = section.title,
+                position = section.order,
+            )
+        }
+}
+
+fun InspectionTemplate.toChecklistItemEntities(): List<ChecklistItemEntity> {
+    return sections.flatMap { section ->
+        section.items.mapIndexed { index, item ->
+            ChecklistItemEntity(
+                id = item.id.value,
+                sectionId = section.id.value,
+                title = item.title,
+                description = item.description,
+                position = index,
+                isRequired = item.required,
+                isCritical = item.critical,
+                weight = item.weight.toDouble(),
+                answerType = item.answerType.name,
+                choiceOptionsJson = null,
+            )
+        }
+    }
+}
 
 private fun SectionAggregateRecord.toDomain(templateId: TemplateId) = InspectionSection(
     id = SectionId(section.id),

@@ -1,10 +1,12 @@
 package com.topic11.cs426.core.testing
 
 import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.repository.IssueRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 class FakeIssueRepository : IssueRepository {
     private val _issues = mutableListOf<MaintenanceIssue>()
@@ -16,7 +18,21 @@ class FakeIssueRepository : IssueRepository {
     val createdIssues: List<MaintenanceIssue>
         get() = _issues.toList()
 
+    fun addIssue(issue: MaintenanceIssue) {
+        _issues.add(issue)
+        issuesFlow.value = _issues.toList()
+    }
+
     override fun observeIssues(): Flow<List<MaintenanceIssue>> = issuesFlow
+
+    override fun observeIssue(issueId: IssueId): Flow<MaintenanceIssue?> =
+        issuesFlow.map { values -> values.firstOrNull { it.id == issueId } }
+
+    override suspend fun getIssue(issueId: IssueId): MaintenanceIssue? =
+        _issues.firstOrNull { it.id == issueId }
+
+    override suspend fun getIssuesForInspection(inspectionId: InspectionId): List<MaintenanceIssue> =
+        _issues.filter { it.inspectionId == inspectionId }
 
     override suspend fun createIssue(issue: MaintenanceIssue): IssueId {
         createIssueCalls += 1

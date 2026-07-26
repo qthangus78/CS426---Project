@@ -10,6 +10,7 @@ data class MaintenanceIssue(
     val description: String? = null,
     val status: MaintenanceIssueStatus,
     val createdAtMillis: Long,
+    val updatedAtMillis: Long = createdAtMillis,
 ) {
     init {
         require(title.isNotBlank()) { "Issue title cannot be blank." }

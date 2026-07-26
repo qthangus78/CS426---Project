@@ -1,6 +1,7 @@
 package com.topic11.cs426.domain
 
 import com.topic11.cs426.core.testing.FakeAssetRepository
+import com.topic11.cs426.core.testing.FakeIssueRepository
 import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.core.testing.RecordingInspectionRepository
@@ -9,17 +10,25 @@ import com.topic11.cs426.domain.model.CompleteInspectionResult
 import com.topic11.cs426.domain.model.InspectionScore
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionValidationError
+import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.IssueSeverity
+import com.topic11.cs426.domain.model.MaintenanceIssue
+import com.topic11.cs426.domain.model.MaintenanceIssueStatus
+import com.topic11.cs426.domain.model.ReportGenerationError
+import com.topic11.cs426.domain.model.ReportGenerationResult
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
 import com.topic11.cs426.domain.usecase.CreateMaintenanceIssueUseCase
 import com.topic11.cs426.domain.usecase.CriticalFailure
 import com.topic11.cs426.domain.usecase.GenerateInspectionReportUseCase
+import com.topic11.cs426.domain.usecase.IssueLifecycle
+import com.topic11.cs426.domain.usecase.IssueStatusUpdateResult
 import com.topic11.cs426.domain.usecase.ScheduleNextInspectionUseCase
+import com.topic11.cs426.domain.usecase.UpdateIssueStatusUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -240,33 +249,134 @@ class DomainBusinessRulesTest {
     )
 
     @Test
-    fun `generateReportRequiresCompletedInspection`() {
-        val session = fixtures.createSampleSession(status = InspectionStatus.IN_PROGRESS)
-        val inspectionRepo = RecordingInspectionRepository()
-        inspectionRepo.addSession(session)
-        val reportUseCase = GenerateInspectionReportUseCase(inspectionRepo)
-
-        assertThrows(IllegalStateException::class.java) {
-            runTest {
-                reportUseCase(session.id)
-            }
-        }
+    fun `issue lifecycle exposes only forward transitions`() {
+        assertEquals(
+            listOf(MaintenanceIssueStatus.IN_PROGRESS),
+            IssueLifecycle.allowedNextStatuses(MaintenanceIssueStatus.OPEN),
+        )
+        assertEquals(
+            listOf(MaintenanceIssueStatus.RESOLVED),
+            IssueLifecycle.allowedNextStatuses(MaintenanceIssueStatus.IN_PROGRESS),
+        )
+        assertEquals(
+            listOf(MaintenanceIssueStatus.CLOSED),
+            IssueLifecycle.allowedNextStatuses(MaintenanceIssueStatus.RESOLVED),
+        )
+        assertEquals(
+            emptyList<MaintenanceIssueStatus>(),
+            IssueLifecycle.allowedNextStatuses(MaintenanceIssueStatus.CLOSED),
+        )
     }
 
     @Test
-    fun `generateReportUsesCompletedInspectionScore`() = runTest {
+    fun `same issue status update is rejected`() = runTest {
+        val repository = FakeIssueRepository()
+        val issue = MaintenanceIssue(
+            id = IssueId("issue-status"),
+            inspectionId = fixtures.computerLab.id,
+            assetId = fixtures.asset1Id,
+            severity = IssueSeverity.CRITICAL,
+            title = "Critical issue",
+            status = MaintenanceIssueStatus.OPEN,
+            createdAtMillis = 1_000L,
+        )
+        repository.addIssue(issue)
+        val useCase = UpdateIssueStatusUseCase(repository, clock = { 2_000L })
+
+        val result = useCase(issue.id, MaintenanceIssueStatus.OPEN)
+
+        assertTrue(result is IssueStatusUpdateResult.InvalidTransition)
+        assertEquals(MaintenanceIssueStatus.OPEN, repository.getIssue(issue.id)?.status)
+    }
+
+    @Test
+    fun `valid issue status update persists updated timestamp`() = runTest {
+        val repository = FakeIssueRepository()
+        val issue = MaintenanceIssue(
+            id = IssueId("issue-status"),
+            inspectionId = fixtures.computerLab.id,
+            assetId = fixtures.asset1Id,
+            severity = IssueSeverity.CRITICAL,
+            title = "Critical issue",
+            status = MaintenanceIssueStatus.OPEN,
+            createdAtMillis = 1_000L,
+        )
+        repository.addIssue(issue)
+        val useCase = UpdateIssueStatusUseCase(repository, clock = { 2_000L })
+
+        useCase(issue.id, MaintenanceIssueStatus.IN_PROGRESS)
+
+        val updated = requireNotNull(repository.getIssue(issue.id))
+        assertEquals(MaintenanceIssueStatus.IN_PROGRESS, updated.status)
+        assertEquals(2_000L, updated.updatedAtMillis)
+    }
+
+    @Test
+    fun `generateReportRequiresCompletedInspection`() = runTest {
+        val session = fixtures.createSampleSession(status = InspectionStatus.IN_PROGRESS)
+        val inspectionRepo = RecordingInspectionRepository()
+        inspectionRepo.addSession(session)
+        val reportUseCase = reportUseCase(
+            inspectionRepo = inspectionRepo,
+            issueRepo = FakeIssueRepository(),
+        )
+
+        val result = reportUseCase(session.id)
+
+        assertEquals(
+            ReportGenerationResult.Failed(ReportGenerationError.NotEligible(InspectionStatus.IN_PROGRESS)),
+            result,
+        )
+    }
+
+    @Test
+    fun `generateReportUsesCompletedInspectionScoreAndIssues`() = runTest {
         val session = fixtures.createSampleSession(
             status = InspectionStatus.COMPLETED,
         ).copy(score = InspectionScore(earnedWeight = 6, totalWeight = 10))
         val inspectionRepo = RecordingInspectionRepository()
         inspectionRepo.addSession(session)
-        val reportUseCase = GenerateInspectionReportUseCase(inspectionRepo)
+        val issueRepo = FakeIssueRepository().apply {
+            addIssue(
+                MaintenanceIssue(
+                    id = IssueId("issue-report"),
+                    inspectionId = session.id,
+                    assetId = session.assetId,
+                    severity = IssueSeverity.CRITICAL,
+                    title = "Critical report issue",
+                    status = MaintenanceIssueStatus.OPEN,
+                    createdAtMillis = 1_500L,
+                ),
+            )
+        }
+        val reportUseCase = reportUseCase(
+            inspectionRepo = inspectionRepo,
+            issueRepo = issueRepo,
+        )
 
-        val report = reportUseCase(session.id)
+        val result = reportUseCase(session.id)
 
+        assertTrue(result is ReportGenerationResult.Success)
+        val report = (result as ReportGenerationResult.Success).report
         assertEquals(session.id, report.inspectionId)
         assertEquals("Inspection report for Computer Lab I.44", report.summary)
         assertEquals(InspectionScore(earnedWeight = 6, totalWeight = 10), report.score)
+        assertEquals("Computer Lab I.44", report.assetName)
+        assertEquals("Lab Safety Checklist", report.templateName)
+        assertEquals(listOf("Critical report issue"), report.issues.map { it.title })
+        assertEquals(2, report.sections.size)
         assertNotNull(report.id.value)
     }
+
+    private fun reportUseCase(
+        inspectionRepo: RecordingInspectionRepository,
+        issueRepo: FakeIssueRepository,
+    ) = GenerateInspectionReportUseCase(
+        inspectionRepository = inspectionRepo,
+        templateRepository = FakeTemplateRepository(
+            templates = mapOf(fixtures.templateId to fixtures.sampleTemplate),
+        ),
+        issueRepository = issueRepo,
+        clock = { 3_000L },
+    )
 }

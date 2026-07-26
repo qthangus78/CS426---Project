@@ -258,6 +258,33 @@ data class MaintenanceIssueEntity(
 )
 
 @Entity(
+    tableName = "report_exports",
+    foreignKeys = [
+        ForeignKey(
+            entity = InspectionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["inspection_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index("inspection_id"),
+        Index("format"),
+        Index("generated_at_ms"),
+    ],
+)
+data class ReportExportEntity(
+    @androidx.room.PrimaryKey val id: String,
+    @ColumnInfo(name = "inspection_id") val inspectionId: String,
+    val format: String,
+    @ColumnInfo(name = "generated_at_ms") val generatedAtMillis: Long,
+    @ColumnInfo(name = "display_filename") val displayFilename: String,
+    @ColumnInfo(name = "storage_key") val storageKey: String,
+    @ColumnInfo(name = "mime_type") val mimeType: String,
+    @ColumnInfo(name = "size_bytes") val sizeBytes: Long,
+)
+
+@Entity(
     tableName = "pending_sync",
     indices = [
         Index(

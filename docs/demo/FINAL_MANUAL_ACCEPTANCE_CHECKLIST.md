@@ -28,15 +28,30 @@ This checklist is for repository-owner runtime confirmation in Android Studio. I
 
 ## Asset Flow
 
-- [ ] Confirm Assets is navigable.
-- [ ] Confirm Assets is clearly presented as a placeholder in the current runtime app.
-- [ ] Confirm the UI does not claim asset creation/editing is production-complete.
+- [ ] Confirm Assets loads a Room-backed asset list.
+- [ ] Confirm the empty state is understandable when no assets exist.
+- [ ] Add an asset with a name, optional code, and location.
+- [ ] Confirm asset validation rejects a blank name and missing/stale location.
+- [ ] Confirm duplicate asset code validation is understandable.
+- [ ] Open Asset details and confirm name, code, location, and next-inspection information are shown.
+- [ ] Edit an asset and confirm the saved changes appear after Back navigation.
+- [ ] Restart the app and confirm the saved asset persists.
+- [ ] Confirm the Dashboard start-inspection selector includes the saved asset.
+- [ ] Start an inspection from Asset details with a selected template.
+- [ ] Confirm Back from Add asset, Edit asset, and Asset details returns to the expected previous screen.
 
 ## Template Flow
 
-- [ ] Confirm Templates is navigable.
-- [ ] Confirm Templates is clearly presented as a placeholder in the current runtime app.
-- [ ] Confirm the UI does not claim template authoring is production-complete.
+- [ ] Confirm Templates loads a Room-backed template list.
+- [ ] Confirm the empty state is understandable when no templates exist.
+- [ ] Open Template details and confirm version, recurrence, sections, checklist items, required, critical, weight, and answer type information are shown.
+- [ ] Add a template with an initial section and checklist item.
+- [ ] Confirm template validation rejects a blank name, blank initial section/item, invalid recurrence, and invalid weight.
+- [ ] Edit existing template metadata and confirm existing sections/items remain visible after save.
+- [ ] Restart the app and confirm the saved template persists.
+- [ ] Confirm the Dashboard start-inspection selector includes the saved template.
+- [ ] Start an inspection from Template details with a selected asset.
+- [ ] Confirm Back from Add template, Edit template, and Template details returns to the expected previous screen.
 
 ## Inspection Start, Edit, Save, Review, Complete
 
@@ -76,8 +91,16 @@ This checklist is for repository-owner runtime confirmation in Android Studio. I
 
 - [ ] Complete an inspection with a failed critical item that has evidence.
 - [ ] Confirm the completed screen reports maintenance issue creation.
-- [ ] Open Issues and confirm the current runtime UI remains an honest placeholder.
-- [ ] Do not claim issue-list lifecycle management is runtime-complete unless it is separately wired and manually verified.
+- [ ] Open Issues and confirm the issue created from inspection completion appears.
+- [ ] Confirm Issues list loading, empty, content, and retry/error behavior where testable.
+- [ ] Apply All, Active, Resolved, and Critical filters and confirm the visible list changes without changing issue data.
+- [ ] Open Issue details and confirm title, description, severity, status, asset, inspection, created date, and updated date are shown.
+- [ ] Confirm only valid next status transitions are offered.
+- [ ] Move an issue from Open to In progress, then to Resolved, then to Closed, and confirm each change persists.
+- [ ] Confirm invalid transitions are unavailable or rejected with an understandable message.
+- [ ] Restart the app and confirm the issue status is retained.
+- [ ] Confirm stale or missing issue detail navigation shows a recoverable state instead of crashing.
+- [ ] Confirm Back from Issues and Issue details returns to the expected previous screen.
 
 ## Draft Recovery
 
@@ -96,22 +119,37 @@ This checklist is for repository-owner runtime confirmation in Android Studio. I
 ## Reports And Export
 
 - [ ] Open Reports.
-- [ ] Confirm report history is not shown as fake completed data.
-- [ ] Confirm PDF/JSON export is not presented as working runtime functionality unless adapters are manually wired and tested.
-- [ ] Confirm the Reports placeholder accurately describes current scope.
+- [ ] Confirm completed inspections appear as report candidates.
+- [ ] Confirm incomplete inspections do not appear as report candidates.
+- [ ] Open Report details and confirm real asset, template, completion time, score, checklist, evidence-reference, and issue data are shown.
+- [ ] Export JSON and confirm the export completes without duplicate export actions while saving.
+- [ ] Open the JSON file and confirm it contains valid report content.
+- [ ] Export PDF and confirm the export completes without duplicate export actions while saving.
+- [ ] Open the PDF and confirm the report title, metadata, checklist summary, issue summary, evidence references, and page content are readable.
+- [ ] Use long notes or issue text where available and confirm PDF content flows across pages without clipped text.
+- [ ] Confirm a successful export appears in Export history.
+- [ ] Restart the app and confirm export history is retained.
+- [ ] Use Open report from a history entry or recent export.
+- [ ] Use Share report from a history entry or recent export.
+- [ ] Confirm export cancellation/failure behavior where testable does not create a successful history row.
+- [ ] Confirm stale or missing exported files show an understandable error instead of a crash.
 
 ## Back Navigation
 
 - [ ] Press Back from Inspection and return to Dashboard.
-- [ ] Press Back from Assets, Templates, Issues, and Reports and return to Dashboard.
+- [ ] Press Back from Assets, Templates, Issues, Reports, and their detail/editor screens and return to the expected previous screen.
 - [ ] Repeat Back navigation after several destination switches.
 
 ## Display Modes
 
 - [ ] Confirm Dashboard and Inspection work in light mode.
+- [ ] Confirm Assets, Templates, Issues, and Reports work in light mode.
 - [ ] Confirm Dashboard and Inspection work in dark mode.
+- [ ] Confirm Assets, Templates, Issues, and Reports work in dark mode.
 - [ ] Confirm Dashboard and Inspection work in portrait.
+- [ ] Confirm Assets, Templates, Issues, and Reports work in portrait.
 - [ ] Confirm Dashboard and Inspection work in landscape.
+- [ ] Confirm Assets, Templates, Issues, and Reports work in landscape.
 - [ ] Confirm narrow display widths keep text and buttons readable.
 - [ ] Increase system font size and confirm key screens remain usable.
 
@@ -120,3 +158,8 @@ This checklist is for repository-owner runtime confirmation in Android Studio. I
 - [ ] Confirm no crash dialog appears during the full manual pass.
 - [ ] Confirm no ANR appears during the full manual pass.
 - [ ] Confirm no fake/demo data is presented as production backend data.
+- [ ] Confirm no duplicate asset/template records appear after app restart.
+- [ ] Confirm no duplicate report-history records appear after app restart.
+- [ ] Confirm stale or removed asset/template/issue/report detail links show a recoverable not-found state instead of crashing.
+- [ ] Confirm no seminar, architecture, Room, DAO, repository, or developer wording appears in product UI.
+- [ ] Confirm repeated Assets/Templates/Issues/Reports navigation does not create duplicate screens, blank screens, crash, or ANR.

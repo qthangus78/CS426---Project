@@ -2,36 +2,40 @@ package com.topic11.cs426.feature.reports
 
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.topic11.cs426.core.designsystem.EmptyState
 import com.topic11.cs426.core.designsystem.FieldFlowTheme
 import com.topic11.cs426.core.designsystem.FieldFlowTopAppBar
+import com.topic11.cs426.core.designsystem.LoadingContent
+import com.topic11.cs426.core.designsystem.StatusBadge
+import com.topic11.cs426.core.designsystem.StatusTone
+import com.topic11.cs426.domain.model.InspectionId
+import com.topic11.cs426.domain.model.ReportFormat
+import com.topic11.cs426.domain.model.ReportHistoryEntry
+import com.topic11.cs426.domain.model.ReportId
 
 @Composable
 internal fun ReportsUi(
@@ -43,8 +47,10 @@ internal fun ReportsUi(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             FieldFlowTopAppBar(
-                title = state.topBarTitle,
-                onBackClick = { state.eventSink(ReportsEvent.BackSelected) },
+                title = "Reports",
+                onBackClick = state.eventSinkOrNull()?.let { eventSink ->
+                    { eventSink(ReportsEvent.BackSelected) }
+                },
             )
         },
     ) { innerPadding ->
@@ -56,240 +62,536 @@ internal fun ReportsUi(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                ReportsEmptyHeader(state = state)
-            }
-            item {
-                FutureCapabilitiesHeader()
-            }
-            itemsIndexed(
-                items = state.futureCapabilities,
-                key = { _, capability -> capability.title },
-            ) { index, capability ->
-                ReportCapabilityCard(
-                    index = index,
-                    capability = capability,
-                )
+            when (state) {
+                ReportsState.Loading -> item {
+                    LoadingContent(label = "Loading reports")
+                }
+                is ReportsState.Empty -> item {
+                    EmptyState(
+                        title = "No reports yet",
+                        message = "Complete an inspection to make it available for export.",
+                    )
+                }
+                is ReportsState.Error -> item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        EmptyState(
+                            title = "Reports unavailable",
+                            message = state.message,
+                        )
+                        OutlinedButton(onClick = { state.eventSink(ReportsEvent.RetrySelected) }) {
+                            Text("Retry")
+                        }
+                    }
+                }
+                is ReportsState.Content -> {
+                    if (state.candidates.isNotEmpty()) {
+                        item { SectionHeader("Ready to export") }
+                        items(
+                            items = state.candidates,
+                            key = { candidate -> candidate.inspectionId.value },
+                        ) { candidate ->
+                            ReportCandidateCard(
+                                candidate = candidate,
+                                onClick = {
+                                    state.eventSink(ReportsEvent.CandidateSelected(candidate.inspectionId))
+                                },
+                            )
+                        }
+                    }
+                    if (state.history.isNotEmpty()) {
+                        item { SectionHeader("Export history") }
+                        items(
+                            items = state.history,
+                            key = { history -> history.entry.id.value },
+                        ) { history ->
+                            ReportHistoryCard(
+                                history = history,
+                                onOpen = { state.eventSink(ReportsEvent.OpenHistorySelected(history.entry)) },
+                                onShare = { state.eventSink(ReportsEvent.ShareHistorySelected(history.entry)) },
+                            )
+                        }
+                    }
+                    state.actionMessage?.let { message ->
+                        item {
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ReportsEmptyHeader(
-    state: ReportsState,
+internal fun ReportDetailUi(
+    state: ReportDetailState,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier
+    Scaffold(
+        modifier = modifier.testTag("report-detail-root"),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            FieldFlowTopAppBar(
+                title = "Report details",
+                onBackClick = state.eventSinkOrNull()?.let { eventSink ->
+                    { eventSink(ReportDetailEvent.BackSelected) }
+                },
+            )
+        },
+    ) { innerPadding ->
+        when (state) {
+            ReportDetailState.Loading -> LoadingContent(
+                label = "Loading report",
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(20.dp),
+            )
+            is ReportDetailState.Error -> {
+                Column(
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    EmptyState(
+                        title = state.title,
+                        message = state.message,
+                    )
+                    OutlinedButton(onClick = { state.eventSink(ReportDetailEvent.RetrySelected) }) {
+                        Text("Retry")
+                    }
+                }
+            }
+            is ReportDetailState.Content -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    item { ReportSummaryCard(state.report) }
+                    item { ExportActions(state.exportState, state.eventSink) }
+                    items(
+                        items = state.report.sections,
+                        key = { section -> section.title },
+                    ) { section ->
+                        ReportSectionCard(section)
+                    }
+                    item { ReportIssuesCard(state.report.issues) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleLarge,
+    )
+}
+
+@Composable
+private fun ReportCandidateCard(
+    candidate: ReportCandidateUi,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
             .fillMaxWidth()
-            .testTag("reports-empty"),
+            .clickable(onClick = onClick)
+            .testTag("report-candidate-${candidate.inspectionId.value}"),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            ReportPlaceholderIllustration()
-            Column(
-                modifier = Modifier.testTag("reports-empty-state"),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
             ) {
                 Text(
-                    text = state.title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = candidate.title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                StatusBadge(candidate.statusLabel, candidate.statusTone)
+            }
+            Text(
+                text = candidate.progressLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReportHistoryCard(
+    history: ReportHistoryItemUi,
+    onOpen: () -> Unit,
+    onShare: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("report-history-${history.entry.id.value}"),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = history.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${history.formatLabel} - ${history.generatedLabel} - ${history.sizeLabel}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = onOpen,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Open report")
+                }
+                OutlinedButton(
+                    onClick = onShare,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Share report")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportSummaryCard(report: ReportDetailUi) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = report.assetName,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                text = report.summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DetailRow("Template", report.templateName)
+            DetailRow("Score", report.scoreLabel)
+            DetailRow("Completed", report.completedLabel.removePrefix("Completed "))
+            DetailRow("Generated", report.generatedLabel.removePrefix("Generated "))
+        }
+    }
+}
+
+@Composable
+private fun ExportActions(
+    exportState: ReportExportUiState,
+    eventSink: (ReportDetailEvent) -> Unit,
+) {
+    val isExporting = exportState is ReportExportUiState.Exporting
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = { eventSink(ReportDetailEvent.ExportSelected(ReportFormat.JSON)) },
+                enabled = !isExporting,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(if (isExporting) "Exporting" else "Export JSON")
+            }
+            Button(
+                onClick = { eventSink(ReportDetailEvent.ExportSelected(ReportFormat.PDF)) },
+                enabled = !isExporting,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(if (isExporting) "Exporting" else "Export PDF")
+            }
+        }
+        when (exportState) {
+            ReportExportUiState.Idle -> Unit
+            is ReportExportUiState.Exporting -> Text(
+                text = "Exporting ${exportState.format.name}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            is ReportExportUiState.Failed -> Text(
+                text = exportState.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            is ReportExportUiState.Succeeded -> {
                 Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = state.details,
+                    text = exportState.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = { eventSink(ReportDetailEvent.OpenLastExportSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Open report")
+                    }
+                    OutlinedButton(
+                        onClick = { eventSink(ReportDetailEvent.ShareLastExportSelected) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Share report")
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ReportPlaceholderIllustration(
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(112.dp)
-            .semantics { contentDescription = "Report placeholder illustration" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Surface(
-            modifier = Modifier.size(width = 128.dp, height = 96.dp),
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            tonalElevation = 2.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = "Report",
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.24f),
-                    content = {},
-                )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth(0.72f)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.24f),
-                    content = {},
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FutureCapabilitiesHeader() {
-    Column(
-        modifier = Modifier.testTag("reports-capabilities"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = "Future capabilities",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = "Shown as product direction only, not active export history.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun ReportCapabilityCard(
-    index: Int,
-    capability: ReportCapabilityUi,
-    modifier: Modifier = Modifier,
-) {
+private fun ReportSectionCard(section: ReportSectionUi) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {},
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 1.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(
-                modifier = Modifier.size(32.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = section.title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            section.items.forEach { item ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "0${index + 1}",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = item.title,
+                        style = MaterialTheme.typography.bodyLarge,
                     )
+                    Text(
+                        text = "${item.semanticsLabel} - ${item.answerLabel}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    item.noteLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    item.evidenceLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = capability.title,
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    text = capability.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
 }
 
-@Preview(
-    name = "Reports Placeholder",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 760,
-)
 @Composable
-private fun ReportsPlaceholderPreview() {
+private fun ReportIssuesCard(issues: List<ReportIssueUi>) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Issues",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (issues.isEmpty()) {
+                Text(
+                    text = "No maintenance issues recorded.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                issues.forEach { issue ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = issue.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = "${issue.severityLabel} - ${issue.statusLabel}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun ReportsState.eventSinkOrNull(): ((ReportsEvent) -> Unit)? = when (this) {
+    ReportsState.Loading -> null
+    is ReportsState.Empty -> eventSink
+    is ReportsState.Content -> eventSink
+    is ReportsState.Error -> eventSink
+}
+
+private fun ReportDetailState.eventSinkOrNull(): ((ReportDetailEvent) -> Unit)? = when (this) {
+    ReportDetailState.Loading -> null
+    is ReportDetailState.Error -> eventSink
+    is ReportDetailState.Content -> eventSink
+}
+
+@Preview(name = "Reports", showBackground = true, widthDp = 411, heightDp = 760)
+@Composable
+private fun ReportsPreview() {
     FieldFlowTheme {
-        ReportsUi(state = previewReportsState)
+        ReportsUi(
+            state = ReportsState.Content(
+                candidates = listOf(previewCandidate),
+                history = listOf(previewHistory),
+                actionMessage = null,
+                eventSink = {},
+            ),
+        )
     }
 }
 
 @Preview(
-    name = "Reports Dark",
+    name = "Report Detail Dark",
     showBackground = true,
     widthDp = 411,
     heightDp = 760,
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
 @Composable
-private fun ReportsDarkPreview() {
+private fun ReportDetailPreview() {
     FieldFlowTheme(darkTheme = true) {
-        ReportsUi(state = previewReportsState)
+        ReportDetailUi(
+            state = ReportDetailState.Content(
+                report = previewReportDetail,
+                exportState = ReportExportUiState.Idle,
+                eventSink = {},
+            ),
+        )
     }
 }
 
-@Preview(
-    name = "Reports Narrow",
-    showBackground = true,
-    widthDp = 320,
-    heightDp = 700,
+private val previewCandidate = ReportCandidateUi(
+    inspectionId = InspectionId("inspection-preview"),
+    title = "Computer Lab I.44",
+    statusLabel = "Completed",
+    statusTone = StatusTone.Success,
+    progressLabel = "7 of 7 items",
 )
-@Composable
-private fun ReportsNarrowPreview() {
-    FieldFlowTheme {
-        ReportsUi(state = previewReportsState)
-    }
-}
 
-@Preview(
-    name = "Reports Large Font",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 760,
-    fontScale = 1.3f,
+private val previewHistoryEntry = ReportHistoryEntry(
+    id = ReportId("report-preview"),
+    inspectionId = InspectionId("inspection-preview"),
+    format = ReportFormat.PDF,
+    generatedAtMillis = 1_800_000L,
+    displayFilename = "fieldflow-inspection-preview-report-preview.pdf",
+    storageKey = "reports/fieldflow-inspection-preview-report-preview.pdf",
+    mimeType = "application/pdf",
+    sizeBytes = 24_000L,
 )
-@Composable
-private fun ReportsLargeFontPreview() {
-    FieldFlowTheme {
-        ReportsUi(state = previewReportsState)
-    }
-}
 
-private val previewReportsState = ReportsState(eventSink = {})
+private val previewHistory = ReportHistoryItemUi(
+    entry = previewHistoryEntry,
+    title = previewHistoryEntry.displayFilename,
+    formatLabel = "PDF",
+    generatedLabel = "Generated 2026-07-26",
+    sizeLabel = "23 KB",
+)
+
+private val previewReportDetail = ReportDetailUi(
+    inspectionId = InspectionId("inspection-preview"),
+    assetName = "Computer Lab I.44",
+    templateName = "Lab Safety Checklist",
+    summary = "Inspection report for Computer Lab I.44",
+    scoreLabel = "6/10",
+    completedLabel = "Completed 2026-07-26",
+    generatedLabel = "Generated 2026-07-26",
+    sections = listOf(
+        ReportSectionUi(
+            title = "Safety",
+            items = listOf(
+                ReportItemUi(
+                    title = "Fire extinguisher present",
+                    semanticsLabel = "Required - Critical - Weight 5",
+                    answerLabel = "Fail",
+                    noteLabel = "Note: Missing at rear door.",
+                    evidenceLabel = "1 evidence reference(s)",
+                ),
+            ),
+        ),
+    ),
+    issues = listOf(
+        ReportIssueUi(
+            title = "Critical failure: Fire extinguisher present",
+            severityLabel = "Critical",
+            statusLabel = "Open",
+        ),
+    ),
+)

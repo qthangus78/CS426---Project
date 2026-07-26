@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.circuit.runtime.ui)
 
     testImplementation(libs.circuit.test)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 }

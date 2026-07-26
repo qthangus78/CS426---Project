@@ -28,6 +28,12 @@ interface CatalogDao {
     @Upsert
     suspend fun upsertChecklistItems(items: List<ChecklistItemEntity>)
 
+    @Query("SELECT * FROM locations ORDER BY name, id")
+    fun observeLocations(): Flow<List<LocationEntity>>
+
+    @Query("SELECT * FROM locations WHERE id = :locationId")
+    suspend fun getLocation(locationId: String): LocationEntity?
+
     @Query("SELECT * FROM assets ORDER BY name, id")
     fun observeAssets(): Flow<List<AssetEntity>>
 
@@ -43,6 +49,9 @@ interface CatalogDao {
 
     @Query("SELECT * FROM assets WHERE id = :assetId")
     suspend fun getAsset(assetId: String): AssetEntity?
+
+    @Query("SELECT * FROM assets WHERE code = :code LIMIT 1")
+    suspend fun getAssetByCode(code: String): AssetEntity?
 
     @Query("SELECT * FROM inspection_templates ORDER BY name, version DESC")
     fun observeTemplates(): Flow<List<InspectionTemplateEntity>>
@@ -92,4 +101,15 @@ interface CatalogDao {
         """,
     )
     suspend fun getChecklistItems(templateRevisionId: String): List<ChecklistItemEntity>
+
+    @Transaction
+    suspend fun upsertTemplateAggregate(
+        template: InspectionTemplateEntity,
+        sections: List<InspectionSectionEntity>,
+        items: List<ChecklistItemEntity>,
+    ) {
+        upsertTemplates(listOf(template))
+        upsertSections(sections)
+        upsertChecklistItems(items)
+    }
 }

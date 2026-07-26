@@ -11,4 +11,6 @@ interface TemplateRepository {
     fun observeTemplate(id: TemplateId): Flow<InspectionTemplate?>
 
     suspend fun getTemplate(id: TemplateId): InspectionTemplate?
+
+    suspend fun saveTemplate(template: InspectionTemplate)
 }

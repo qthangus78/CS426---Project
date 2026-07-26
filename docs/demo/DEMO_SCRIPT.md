@@ -1,6 +1,6 @@
 # FieldFlow Demo Script
 
-Use this script for a short seminar demonstration of the current FieldFlow app. Runtime testing remains manual; this script intentionally separates runtime-wired behavior from placeholders and infrastructure that is not exposed in the product UI.
+Use this script for a short seminar demonstration of the current FieldFlow app. Runtime testing remains manual; this script intentionally separates runtime-wired product behavior from infrastructure that is not exposed in the product UI.
 
 ## 1. Launch
 
@@ -51,9 +51,13 @@ Explain that validation, scoring, completion, and critical-failure issue creatio
 
 From Dashboard quick access, open Assets, Templates, Issues, and Reports.
 
-For Assets, Templates, and Issues, show that each destination is registered, navigable, and explicitly marked as not implemented in the runtime UI.
+For Assets, show the Room-backed list, open an asset detail screen, add or edit an asset, preserve the location association, and use Start inspection to enter the existing inspection workflow with a selected template.
 
-For Reports, show that report history and PDF/JSON export are not presented as working runtime features. The Domain report model and exporter port exist, but concrete PDF/JSON adapters and user-visible export flow are not wired.
+For Templates, show the Room-backed list, open template details, review sections and checklist items, add a template with an initial checklist item, and edit existing template metadata without changing the checklist aggregate. Full multi-section/item authoring and active/archive lifecycle controls are not part of the current runtime workflow.
+
+For Issues, complete an inspection with a critical failure first, then show the Room-backed issue list, filters, issue detail, and available lifecycle status actions.
+
+For Reports, show completed inspections ready to export, open a report detail screen, verify score/checklist/issue data, export JSON and PDF, then show the persisted export history plus Open and Share actions.
 
 ## 5. Offline-First Runtime
 
@@ -67,8 +71,8 @@ RoomInspectionRepository
 
 Point out:
 
-- Room schema version 2 is present;
-- Room repository and DAO tests cover draft recovery and pending sync state;
+- Room schema version 3 is present;
+- Room repository and DAO tests cover draft recovery, issue updates, report history, and pending sync state;
 - `:app` binds Room repositories in `FieldFlowCompositionRoot.kt`;
 - Android Studio manual testing should still confirm process-restart draft recovery and pending-sync visibility on a device or emulator selected by the repository owner.
 
@@ -94,16 +98,16 @@ Implemented for seminar:
 - modular Clean Architecture boundary;
 - pure Kotlin Domain rules and ports;
 - Circuit Dashboard and Inspection workflow;
+- Room-backed Assets, Templates, Issues, and Reports workflows;
 - Room-backed runtime persistence with asynchronous sample seeding;
 - Room/Data infrastructure with unit tests;
-- honest placeholder boundaries for unfinished feature UIs.
+- app-layer open/share bridge for exported report artifacts.
 
 Not implemented as runtime app behavior:
 
 - production backend/authentication;
 - real QR/GPS/push/AI;
-- concrete PDF/JSON export flow;
 - real photo picker/evidence upload flow;
-- cloud synchronization or backend authentication.
+- cloud synchronization, backend authentication, email delivery, report scheduling, push notifications, or AI-generated summaries.
 
 `DemoRepositories.kt` remains as a code-level fallback for deterministic adapter-swap experiments and tests. It is not selected by the normal product runtime and must not be exposed as a product UI setting.

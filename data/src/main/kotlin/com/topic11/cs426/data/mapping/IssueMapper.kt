@@ -19,9 +19,10 @@ fun MaintenanceIssueEntity.toDomain() = MaintenanceIssue(
     description = description.ifEmpty { null },
     status = enumValue("issue status", id, status),
     createdAtMillis = createdAtMillis,
+    updatedAtMillis = updatedAtMillis,
 )
 
-fun MaintenanceIssue.toEntity(updatedAtMillis: Long = createdAtMillis) =
+fun MaintenanceIssue.toEntity(updatedAtMillis: Long = this.updatedAtMillis) =
     MaintenanceIssueEntity(
         id = id.value,
         inspectionId = inspectionId.value,

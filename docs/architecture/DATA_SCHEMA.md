@@ -1,6 +1,6 @@
 # FieldFlow Data Schema
 
-Status: implemented Room schema, database version 2.
+Status: implemented Room schema, database version 3.
 
 This document describes the local persistence model owned by `:core:database`. The executable source of truth is `FieldFlowDatabase`, its entities, DAOs, migrations, and exported schemas; this document records the intended storage and mapping boundaries. Room types remain private to `:core:database`, while `:data` maps them to Domain models.
 
@@ -175,6 +175,21 @@ Index `inspection_id`, `asset_id`, `severity`, and `status`.
 
 Add a unique index on `(aggregate_type, aggregate_id, operation, payload_version)` for P0 duplicate prevention. Index `(state, updated_at_ms)` for retry selection.
 
+### `report_exports`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | TEXT | Primary key |
+| `inspection_id` | TEXT | Foreign key to `inspections.id` |
+| `format` | TEXT | Explicit export format value such as `JSON` or `PDF` |
+| `generated_at_ms` | INTEGER | Non-null |
+| `display_filename` | TEXT | Non-blank product filename |
+| `storage_key` | TEXT | Non-blank opaque file-adapter key |
+| `mime_type` | TEXT | Non-blank |
+| `size_bytes` | INTEGER | Non-negative |
+
+Index `inspection_id`, `format`, and `generated_at_ms`. Store successful exports only; failed file writes must not be recorded as export history.
+
 ## Relationships
 
 ```text
@@ -186,6 +201,7 @@ inspection_templates revision 1 -> many inspections
 inspections 1 -> many inspection_answers
 inspections 1 -> many evidence
 inspections 1 -> many maintenance_issues
+inspections 1 -> many report_exports
 inspections/issues 1 -> many pending_sync commands by aggregate reference
 ```
 
@@ -223,6 +239,10 @@ The physical evidence files must already be durable before this transaction begi
 
 Update `pending_sync.state`, retry metadata, and the owning aggregate's `sync_status` together when possible. Remote failure must never delete or roll back valid local business data.
 
+### Report export
+
+Generate the report from persisted completed inspection data, write the JSON or PDF artifact through the file adapter, then insert the `report_exports` history row only after the file write succeeds. Failed export attempts must leave no successful history row.
+
 ## Mapping Boundary
 
 ```text
@@ -234,7 +254,7 @@ UI model (:feature:inspection)
 ```
 
 - Database enum values require explicit mapping; do not use `enum.valueOf` without an unknown-value policy.
-- `storage_key` maps to an opaque Domain evidence reference, never directly to UI file handling.
+- `storage_key` maps to an opaque Domain evidence or report-export reference, never directly to UI file handling.
 - `template_revision_id` remains internal; Domain receives the logical template ID and version required by its approved model.
 - Room relations are assembled into aggregate persistence models before mapping to Domain.
 
@@ -244,6 +264,6 @@ UI model (:feature:inspection)
 - WorkManager scheduling.
 - Authentication and user ownership columns.
 - Soft-delete/tombstone protocol required by real remote synchronization.
-- Report binary storage and polished PDF export.
+- Failure-history rows for report export attempts.
 
 These additions require a separate contract with the backend and must not reuse Room entities as network DTOs.

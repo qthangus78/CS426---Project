@@ -105,7 +105,7 @@ Evidence:
 
 `:domain` owns business models, use cases, and repository/export/storage ports. Important files include `InspectionSession.kt`, `InspectionTemplate.kt`, `InspectionScore.kt`, `ValidateInspectionUseCase.kt`, `CompleteInspectionUseCase.kt`, and `GenerateInspectionReportUseCase.kt`.
 
-`:data` owns infrastructure adapters for Domain ports. Important files include `RoomInspectionRepository.kt`, `RoomAssetRepository.kt`, `RoomTemplateRepository.kt`, `FakeInspectionRepository.kt`, `FieldFlowSampleDataSeeder.kt`, `AndroidEvidenceStore.kt`, and `FakeRemoteSyncAdapter.kt`.
+`:data` owns infrastructure adapters for Domain ports. Important files include `RoomInspectionRepository.kt`, `RoomAssetRepository.kt`, `RoomTemplateRepository.kt`, `RoomIssueRepository.kt`, `RoomReportRepository.kt`, `FieldFlowSampleDataSeeder.kt`, `AndroidEvidenceStore.kt`, report exporters, and `FakeRemoteSyncAdapter.kt`.
 
 `:core:database` owns the Room boundary: `FieldFlowDatabase.kt`, `DatabaseEntities.kt`, DAOs, migrations, schema JSON, and database tests.
 
@@ -119,9 +119,13 @@ Evidence:
 
 `:feature:inspection` owns Inspection presentation: `InspectionPresenter.kt`, `InspectionUi.kt`, contracts, and Circuit factories.
 
-`:feature:assets`, `:feature:templates`, and `:feature:issues` own currently navigable placeholder boundaries. Their runtime UI is intentionally honest that the feature workflow is not implemented.
+`:feature:assets` owns the Room-backed asset management workflow: list, detail, add/edit, location association, validation, and start-inspection handoff through Domain use cases.
 
-`:feature:reports` owns a Reports placeholder destination. Domain report models and ports exist, but runtime report history and PDF/JSON adapters are not wired.
+`:feature:templates` owns the Room-backed template workflow: list, detail with sections and checklist items, add template with an initial checklist item, metadata-only editing for existing templates, validation, and start-inspection handoff. Complete multi-section/item authoring remains deferred so existing checklist aggregates are not lost.
+
+`:feature:issues` owns the issue lifecycle workspace: Room-backed issue list, filters, detail, and Domain-validated status transitions.
+
+`:feature:reports` owns the reports workspace: completed-inspection candidates, generated report detail, persisted export history, JSON/PDF export actions, and open/share events.
 
 ## 6. One Complete End-to-End Flow
 
@@ -246,10 +250,10 @@ The offline-first runtime is built around Room as the local source of truth:
 
 FieldFlow uses several levels of tests:
 
-- Pure Domain tests: `DomainBusinessRulesTest.kt`, `ObserveInspectionSummariesUseCaseTest.kt`, and `ObserveInspectionUseCaseTest.kt`.
+- Pure Domain tests: `DomainBusinessRulesTest.kt`, `ObserveInspectionSummariesUseCaseTest.kt`, `ObserveInspectionUseCaseTest.kt`, and workflow use-case tests.
 - Database and DAO tests: `FieldFlowDatabaseTest.kt`, `DraftRecoveryTest.kt`, `PendingSyncTest.kt`, and `FieldFlowMigrationTest.kt`.
-- Data adapter tests: `RoomInspectionRepositoryTest.kt`, `InspectionSummaryMapperTest.kt`, `FieldFlowSampleDataSeederTest.kt`, `AndroidEvidenceStoreTest.kt`, and `FakeRemoteSyncAdapterTest.kt`.
-- Presenter tests: `DashboardPresenterTest.kt`, `InspectionPresenterTest.kt`, and `ReportsPresenterTest.kt`.
+- Data adapter tests: `RoomInspectionRepositoryTest.kt`, `RoomCatalogRepositoriesTest.kt`, `RoomReportRepositoryTest.kt`, `InspectionSummaryMapperTest.kt`, `FieldFlowSampleDataSeederTest.kt`, `AndroidEvidenceStoreTest.kt`, report exporter tests, and `FakeRemoteSyncAdapterTest.kt`.
+- Presenter tests: `DashboardPresenterTest.kt`, `InspectionPresenterTest.kt`, `IssuesPresenterTest.kt`, and `ReportsPresenterTest.kt`.
 - Runtime UI/instrumentation coverage is limited to `app/src/androidTest/java/com/topic11/cs426/FieldFlowNavigationSmokeTest.kt` and should be completed manually with `docs/demo/FINAL_MANUAL_ACCEPTANCE_CHECKLIST.md`.
 
 The strongest tests are Domain, DAO, mapper, repository, and Presenter tests. Manual runtime acceptance remains necessary because this review does not run an emulator.
@@ -363,8 +367,8 @@ If `:feature:inspection` does not declare `implementation(project(":data"))`, it
 Change the Domain use case and Domain tests first. Presentation should mostly keep rendering state and emitting events, while Data should keep mapping and persistence behavior.
 
 **What are the architecture's limitations?**
-Report exporters are ports without concrete PDF/JSON UI wiring, Assets/Templates/Issues remain placeholder feature destinations, evidence capture is limited to the implemented reference/storage path, and real backend synchronization is out of scope.
+Real backend synchronization, authentication, report scheduling, email delivery, push notifications, AI-generated summaries, full multi-section template authoring, and active/archive lifecycle controls for assets/templates remain out of scope. Evidence capture is limited to the implemented reference/storage path, and final PDF opening/rendering still requires manual Android Studio or device confirmation.
 
 ## 20. Final Architecture Summary
 
-FieldFlow demonstrates Circuit-Based Feature-Modular Clean Architecture: feature modules own UI, Domain owns inspection rules and ports, Data implements replaceable adapters, Room is isolated behind repositories, and `:app` assembles the runtime graph. The architecture is valuable because FieldFlow has real business rules and offline-first concerns, but the seminar should clearly state which feature destinations are implemented, which are placeholders, and which adapters are code-level fallbacks.
+FieldFlow demonstrates Circuit-Based Feature-Modular Clean Architecture: feature modules own UI, Domain owns inspection rules and ports, Data implements replaceable adapters, Room is isolated behind repositories, and `:app` assembles the runtime graph. The architecture is valuable because FieldFlow has real business rules and offline-first concerns, but the seminar should clearly state which product workflows are implemented, which parts remain limited, and which adapters are code-level fallbacks.

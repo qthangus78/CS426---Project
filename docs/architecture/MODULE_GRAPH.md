@@ -21,17 +21,19 @@ Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
 ## Responsibilities
 
-- `:app`: Android application, Circuit assembly, initial navigation stack, and concrete dependency assembly. The current runtime opens Room, applies migrations, schedules sample-data seeding asynchronously, and binds Room-backed repositories.
+- `:app`: Android application, Circuit assembly, initial navigation stack, Android open/share bridge, and concrete dependency assembly. The current runtime opens Room, applies migrations, schedules sample-data seeding asynchronously, and binds Room-backed repositories plus report exporters.
 - `:domain`: pure Kotlin IDs, models, repository ports, validation, scoring, inspection lifecycle, issue, report, draft, and scheduling use cases.
-- `:data`: persistence-to-Domain mapping, Room summary repository, sample-data seeding, evidence-file adapter, and deterministic fake remote synchronization.
+- `:data`: persistence-to-Domain mapping, Room repositories, sample-data seeding, evidence-file adapter, report file exporters, and deterministic fake remote synchronization.
 - `:core:navigation`: Parcelable Circuit `Screen` contracts shared across features.
-- `:core:database`: Room database version 2, entities, DAOs, migrations, exported schemas, and database tests. It owns storage models, never Domain models.
+- `:core:database`: Room database version 3, entities, DAOs, migrations, exported schemas, and database tests. It owns storage models, never Domain models.
 - `:core:designsystem`: shared Compose theme and reusable UI primitives.
 - `:core:testing`: Domain fakes and fixtures for test source sets.
 - `:feature:dashboard`: inspection summary dashboard.
 - `:feature:inspection`: editable inspection workflow presentation: answer, note, evidence-reference, section progress, draft, review, validation, and completion states.
-- `:feature:assets`, `:feature:templates`, `:feature:issues`: navigable placeholder boundaries.
-- `:feature:reports`: an honest placeholder for report history/export capability.
+- `:feature:assets`: Room-backed asset list, detail, add/edit, location association, validation, and start-inspection handoff.
+- `:feature:templates`: Room-backed template list, detail with sections/items, add template with an initial checklist item, metadata editing that preserves existing sections/items, validation, and start-inspection handoff.
+- `:feature:issues`: Room-backed issue list, filters, detail, and Domain-validated lifecycle status updates.
+- `:feature:reports`: completed-inspection report candidates, generated report detail, persisted export history, JSON/PDF export actions, and open/share events.
 
 ## Allowed Dependencies
 
@@ -52,4 +54,4 @@ Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
 ## Composition Root
 
-`FieldFlowCompositionRoot` assembles Domain use cases, feature factories, the Circuit instance, and the app-scoped Room database. It binds Room-backed inspection, template, and asset repositories for the current runtime while keeping Room/Data implementations out of feature modules. Sample data seeding runs on an app-scoped IO coroutine. Evidence storage is consumed by the inspection workflow; fake synchronization remains a Data-layer capability until app workflows consume it.
+`FieldFlowCompositionRoot` assembles Domain use cases, feature factories, the Circuit instance, the app-scoped Room database, report exporters, and Android open/share handling. It binds Room-backed inspection, template, asset, issue, and report repositories for the current runtime while keeping Room/Data implementations out of feature modules. Sample data seeding runs on an app-scoped IO coroutine. Evidence storage is consumed by the inspection workflow; fake synchronization remains a Data-layer capability until app workflows consume it.

@@ -15,6 +15,7 @@ import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionTemplateSummary
 import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.Location
 import com.topic11.cs426.domain.model.LocationId
 import com.topic11.cs426.domain.model.MaintenanceIssue
 import com.topic11.cs426.domain.model.SectionId
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -57,8 +57,16 @@ private val demoAssets = listOf(
     ),
 )
 
+private val demoLocations = listOf(
+    Location(
+        id = LocationId("hcmus"),
+        name = "HCMUS",
+    ),
+)
+
 internal class DemoAssetRepository : AssetRepository {
     private val assets = MutableStateFlow(demoAssets)
+    private val locations = MutableStateFlow(demoLocations)
 
     override fun observeAssets(): Flow<List<AssetSummary>> =
         assets.map { values ->
@@ -73,15 +81,24 @@ internal class DemoAssetRepository : AssetRepository {
             }
         }
 
+    override fun observeLocations(): Flow<List<Location>> = locations.asStateFlow()
+
     override suspend fun getAsset(id: AssetId): Asset? =
         assets.value.firstOrNull { it.id == id }
 
+    override suspend fun getAssetByCode(code: String): Asset? =
+        assets.value.firstOrNull { it.code == code }
+
+    override suspend fun getLocation(id: LocationId): Location? =
+        locations.value.firstOrNull { it.id == id }
+
     override suspend fun saveAsset(asset: Asset) {
-        check(assets.value.any { it.id == asset.id }) {
-            "Asset does not exist: ${asset.id.value}"
-        }
         assets.update { values ->
-            values.map { current -> if (current.id == asset.id) asset else current }
+            if (values.any { it.id == asset.id }) {
+                values.map { current -> if (current.id == asset.id) asset else current }
+            } else {
+                values + asset
+            }
         }
     }
 }
@@ -270,6 +287,15 @@ internal class DemoIssueRepository : IssueRepository {
 
     override fun observeIssues(): Flow<List<MaintenanceIssue>> = issues.asStateFlow()
 
+    override fun observeIssue(issueId: IssueId): Flow<MaintenanceIssue?> =
+        issues.map { values -> values.firstOrNull { it.id == issueId } }
+
+    override suspend fun getIssue(issueId: IssueId): MaintenanceIssue? =
+        issues.value.firstOrNull { it.id == issueId }
+
+    override suspend fun getIssuesForInspection(inspectionId: InspectionId): List<MaintenanceIssue> =
+        issues.value.filter { it.inspectionId == inspectionId }
+
     override suspend fun createIssue(issue: MaintenanceIssue): IssueId {
         issues.update { values -> values + issue }
         return issue.id
@@ -286,11 +312,27 @@ internal class DemoIssueRepository : IssueRepository {
  * Provides [demoTemplate] for demo-only callers.
  */
 internal class DemoTemplateRepository : TemplateRepository {
-    override fun observeTemplates(): Flow<List<InspectionTemplateSummary>> = flowOf(emptyList())
+    private val templates = MutableStateFlow(mapOf(demoTemplate.id to demoTemplate))
+
+    override fun observeTemplates(): Flow<List<InspectionTemplateSummary>> =
+        templates.map { values ->
+            values.values.map { template ->
+                InspectionTemplateSummary(
+                    id = template.id,
+                    name = template.name,
+                    version = template.version,
+                    sectionCount = template.sections.size,
+                )
+            }
+        }
 
     override fun observeTemplate(id: TemplateId): Flow<InspectionTemplate?> =
-        flowOf(if (id == demoTemplate.id) demoTemplate else null)
+        templates.map { values -> values[id] }
 
     override suspend fun getTemplate(id: TemplateId): InspectionTemplate? =
-        if (id == demoTemplate.id) demoTemplate else null
+        templates.value[id]
+
+    override suspend fun saveTemplate(template: InspectionTemplate) {
+        templates.update { values -> values + (template.id to template) }
+    }
 }

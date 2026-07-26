@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import com.topic11.cs426.core.database.dao.CatalogDao
 import com.topic11.cs426.core.database.dao.InspectionDao
 import com.topic11.cs426.core.database.dao.IssueDao
+import com.topic11.cs426.core.database.dao.ReportHistoryDao
 import com.topic11.cs426.core.database.dao.SyncDao
 import com.topic11.cs426.core.database.entity.AssetEntity
 import com.topic11.cs426.core.database.entity.ChecklistItemEntity
@@ -16,6 +17,7 @@ import com.topic11.cs426.core.database.entity.InspectionTemplateEntity
 import com.topic11.cs426.core.database.entity.LocationEntity
 import com.topic11.cs426.core.database.entity.MaintenanceIssueEntity
 import com.topic11.cs426.core.database.entity.PendingSyncEntity
+import com.topic11.cs426.core.database.entity.ReportExportEntity
 
 @Database(
     entities = [
@@ -28,9 +30,10 @@ import com.topic11.cs426.core.database.entity.PendingSyncEntity
         InspectionAnswerEntity::class,
         EvidenceEntity::class,
         MaintenanceIssueEntity::class,
+        ReportExportEntity::class,
         PendingSyncEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class FieldFlowDatabase : RoomDatabase() {
@@ -40,10 +43,12 @@ abstract class FieldFlowDatabase : RoomDatabase() {
 
     abstract fun issueDao(): IssueDao
 
+    abstract fun reportHistoryDao(): ReportHistoryDao
+
     abstract fun syncDao(): SyncDao
 
     companion object {
         const val DATABASE_NAME = "fieldflow.db"
-        const val VERSION = 2
+        const val VERSION = 3
     }
 }

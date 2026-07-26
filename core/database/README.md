@@ -4,8 +4,8 @@
 
 It currently contains:
 
-- `FieldFlowDatabase` version 2;
-- Room entities and DAOs for catalog, inspection, issue, evidence, and pending-sync data;
+- `FieldFlowDatabase` version 3;
+- Room entities and DAOs for catalog, inspection, issue, evidence, report-history, and pending-sync data;
 - explicit, data-preserving migrations in `FieldFlowMigrations`;
 - exported schemas in `schemas/` and migration/database tests;
 - no dependency on `:app` or any feature module.

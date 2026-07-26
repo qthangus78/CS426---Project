@@ -22,6 +22,7 @@ import com.topic11.cs426.domain.usecase.ObserveAssetsUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
 import com.topic11.cs426.domain.usecase.ObserveTemplatesUseCase
 import com.topic11.cs426.domain.usecase.StartInspectionUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -30,6 +31,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DashboardPresenterTest {
     @Test
     fun `present emits loading then content with sample inspections`() = runTest {

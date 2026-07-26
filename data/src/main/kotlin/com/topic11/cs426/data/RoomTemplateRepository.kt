@@ -1,8 +1,11 @@
 package com.topic11.cs426.data
 
 import com.topic11.cs426.core.database.dao.CatalogDao
+import com.topic11.cs426.data.mapping.toChecklistItemEntities
 import com.topic11.cs426.data.mapping.toDomain
+import com.topic11.cs426.data.mapping.toSectionEntities
 import com.topic11.cs426.data.mapping.toSummary
+import com.topic11.cs426.data.mapping.toTemplateEntity
 import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionTemplateSummary
 import com.topic11.cs426.domain.model.TemplateId
@@ -26,4 +29,12 @@ class RoomTemplateRepository(
 
     override suspend fun getTemplate(id: TemplateId): InspectionTemplate? =
         catalogDao.getTemplateAggregate(id.value)?.toDomain()
+
+    override suspend fun saveTemplate(template: InspectionTemplate) {
+        catalogDao.upsertTemplateAggregate(
+            template = template.toTemplateEntity(),
+            sections = template.toSectionEntities(),
+            items = template.toChecklistItemEntities(),
+        )
+    }
 }
