@@ -3,10 +3,12 @@ package com.topic11.cs426.feature.dashboard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.Presenter
 import com.topic11.cs426.core.designsystem.StatusTone
@@ -22,12 +24,16 @@ import com.topic11.cs426.domain.model.AssetSummary
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.model.InspectionTemplateSummary
+import com.topic11.cs426.domain.model.MaintenanceIssue
+import com.topic11.cs426.domain.model.MaintenanceIssueStatus
 import com.topic11.cs426.domain.model.TemplateId
 import com.topic11.cs426.domain.usecase.ObserveAssetsUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
+import com.topic11.cs426.domain.usecase.ObserveIssuesUseCase
 import com.topic11.cs426.domain.usecase.ObserveTemplatesUseCase
 import com.topic11.cs426.domain.usecase.StartInspectionUseCase
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -35,40 +41,53 @@ internal class DashboardPresenter(
     private val observeInspectionSummaries: ObserveInspectionSummariesUseCase,
     private val observeAssets: ObserveAssetsUseCase,
     private val observeTemplates: ObserveTemplatesUseCase,
+    private val observeIssues: ObserveIssuesUseCase,
     private val startInspection: StartInspectionUseCase,
     private val navigator: Navigator,
 ) : Presenter<DashboardState> {
     @Composable
     override fun present(): DashboardState {
-        val presenterModels = remember(
+        // Bumping the token rebuilds the observation flows, which is how RetrySelected
+        // re-subscribes after a failure. Mirrors ReportsPresenter.
+        var retryToken by remember { mutableIntStateOf(0) }
+        val observedDashboards = remember(
             observeInspectionSummaries,
             observeAssets,
             observeTemplates,
+            observeIssues,
+            retryToken,
         ) {
             combine(
                 observeInspectionSummaries(),
                 observeAssets(),
                 observeTemplates(),
-            ) { summaries, assets, templates ->
-                    val inspections = summaries.map { inspection -> inspection.toUiModel() }
+                observeIssues(),
+            ) { summaries, assets, templates, issues ->
+                val inspections = summaries.map { inspection -> inspection.toUiModel() }
+                ObservedDashboard.Loaded(
                     DashboardPresenterModel(
-                        isLoaded = true,
-                        overview = summaries.toOverviewUi(),
+                        overview = summaries.toOverviewUi(issues),
                         inspections = inspections,
                         heroInspection = inspections.selectHeroInspection(),
                         assets = assets.map { it.toStartInspectionAssetUi() },
                         templates = templates.map { it.toStartInspectionTemplateUi() },
-                    )
-                }
+                    ),
+                ) as ObservedDashboard
+            }.catch { emit(ObservedDashboard.Failed) }
         }
-        val presenterModel by presenterModels.collectAsState(initial = DashboardPresenterModel())
-        var selectedFilter by remember { mutableStateOf(InspectionFilterUi.ALL) }
-        var isAboutVisible by remember { mutableStateOf(false) }
-        var isStartInspectionVisible by remember { mutableStateOf(false) }
-        var selectedAssetId by remember { mutableStateOf<AssetId?>(null) }
-        var selectedTemplateId by remember { mutableStateOf<TemplateId?>(null) }
+        val observedDashboard by observedDashboards.collectAsState(initial = ObservedDashboard.Loading)
+        val presenterModel = (observedDashboard as? ObservedDashboard.Loaded)?.model
+            ?: DashboardPresenterModel()
+        // Retained so a rotation does not close the start-inspection dialog or reset the filter.
+        var selectedFilter by rememberRetained { mutableStateOf(InspectionFilterUi.ALL) }
+        var isAboutVisible by rememberRetained { mutableStateOf(false) }
+        var isStartInspectionVisible by rememberRetained { mutableStateOf(false) }
+        var selectedAssetId by rememberRetained { mutableStateOf<AssetId?>(null) }
+        var selectedTemplateId by rememberRetained { mutableStateOf<TemplateId?>(null) }
+        // Deliberately not retained: the creating coroutine dies with the composition, so the
+        // dialog must not come back stuck in a permanent "creating" state.
         var isCreatingInspection by remember { mutableStateOf(false) }
-        var startInspectionError by remember { mutableStateOf<String?>(null) }
+        var startInspectionError by rememberRetained { mutableStateOf<String?>(null) }
         val coroutineScope = rememberCoroutineScope()
 
         fun selectedAsset(): StartInspectionAssetUi? =
@@ -161,13 +180,20 @@ internal class DashboardPresenter(
                     DashboardEvent.IssuesSelected -> navigator.goTo(IssuesScreen)
                     DashboardEvent.ReportsSelected -> navigator.goTo(ReportsScreen)
                     DashboardEvent.SettingsSelected -> navigator.goTo(SettingsScreen)
+                    DashboardEvent.RetrySelected -> {
+                        retryToken += 1
+                    }
                 }
                 Unit
             }
         }
 
         return when {
-            !presenterModel.isLoaded -> DashboardState.Loading
+            observedDashboard is ObservedDashboard.Failed -> DashboardState.Error(
+                message = "Dashboard could not be loaded.",
+                eventSink = eventSink,
+            )
+            observedDashboard is ObservedDashboard.Loading -> DashboardState.Loading
             presenterModel.inspections.isEmpty() -> DashboardState.Empty(
                 overview = presenterModel.overview,
                 selectedFilter = selectedFilter,
@@ -188,12 +214,20 @@ internal class DashboardPresenter(
     }
 }
 
+private sealed interface ObservedDashboard {
+    data object Loading : ObservedDashboard
+
+    data object Failed : ObservedDashboard
+
+    data class Loaded(val model: DashboardPresenterModel) : ObservedDashboard
+}
+
 private data class DashboardPresenterModel(
-    val isLoaded: Boolean = false,
     val overview: DashboardOverviewUi = DashboardOverviewUi(
         totalInspections = 0,
         inProgressInspections = 0,
         syncPendingInspections = 0,
+        pendingIssues = 0,
     ),
     val heroInspection: InspectionSummaryUi? = null,
     val inspections: List<InspectionSummaryUi> = emptyList(),
@@ -218,7 +252,9 @@ private fun List<InspectionSummaryUi>.filterBy(filter: InspectionFilterUi): List
     }
 }
 
-private fun List<InspectionSummary>.toOverviewUi(): DashboardOverviewUi {
+private fun List<InspectionSummary>.toOverviewUi(
+    issues: List<MaintenanceIssue>,
+): DashboardOverviewUi {
     return DashboardOverviewUi(
         totalInspections = size,
         inProgressInspections = count { inspection ->
@@ -227,7 +263,23 @@ private fun List<InspectionSummary>.toOverviewUi(): DashboardOverviewUi {
         syncPendingInspections = count { inspection ->
             inspection.status == InspectionStatus.SYNC_PENDING
         },
+        pendingIssues = issues.count { issue -> issue.status.isPending() },
     )
+}
+
+/**
+ * "Pending" means the issue still needs field work: OPEN has not been picked up yet and
+ * IN_PROGRESS is being worked on. RESOLVED and CLOSED are excluded because
+ * `IssueLifecycle` treats RESOLVED as fixed (its only transition is CLOSED, the terminal
+ * status), so counting them would keep the dashboard tile permanently inflated by history.
+ */
+private fun MaintenanceIssueStatus.isPending(): Boolean {
+    return when (this) {
+        MaintenanceIssueStatus.OPEN,
+        MaintenanceIssueStatus.IN_PROGRESS -> true
+        MaintenanceIssueStatus.RESOLVED,
+        MaintenanceIssueStatus.CLOSED -> false
+    }
 }
 
 private fun InspectionSummary.toUiModel(): InspectionSummaryUi {

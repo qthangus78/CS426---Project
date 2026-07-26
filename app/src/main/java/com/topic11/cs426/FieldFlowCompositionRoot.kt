@@ -227,6 +227,7 @@ class FieldFlowCompositionRoot private constructor(
                         observeInspectionSummaries = observeInspectionSummaries,
                         observeAssets = observeAssets,
                         observeTemplates = observeTemplates,
+                        observeIssues = observeIssues,
                         startInspection = startInspection,
                     ),
                 )

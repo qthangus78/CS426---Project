@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.circuit.retained)
     implementation(libs.circuit.runtime)
     implementation(libs.circuit.runtime.presenter)
     implementation(libs.circuit.runtime.ui)

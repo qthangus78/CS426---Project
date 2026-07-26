@@ -31,6 +31,12 @@ sealed interface DashboardState : CircuitUiState {
         val startInspection: StartInspectionUi,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
+
+    @Immutable
+    data class Error(
+        val message: String,
+        val eventSink: (DashboardEvent) -> Unit,
+    ) : DashboardState
 }
 
 enum class InspectionFilterUi(
@@ -47,6 +53,7 @@ data class DashboardOverviewUi(
     val totalInspections: Int,
     val inProgressInspections: Int,
     val syncPendingInspections: Int,
+    val pendingIssues: Int,
 )
 
 @Immutable
@@ -119,4 +126,6 @@ sealed interface DashboardEvent : CircuitUiEvent {
     data object ReportsSelected : DashboardEvent
 
     data object SettingsSelected : DashboardEvent
+
+    data object RetrySelected : DashboardEvent
 }

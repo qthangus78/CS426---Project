@@ -9,6 +9,7 @@ import com.slack.circuit.runtime.ui.ui
 import com.topic11.cs426.core.navigation.DashboardScreen
 import com.topic11.cs426.domain.usecase.ObserveAssetsUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
+import com.topic11.cs426.domain.usecase.ObserveIssuesUseCase
 import com.topic11.cs426.domain.usecase.ObserveTemplatesUseCase
 import com.topic11.cs426.domain.usecase.StartInspectionUseCase
 
@@ -16,6 +17,7 @@ class DashboardPresenterFactory(
     private val observeInspectionSummaries: ObserveInspectionSummariesUseCase,
     private val observeAssets: ObserveAssetsUseCase,
     private val observeTemplates: ObserveTemplatesUseCase,
+    private val observeIssues: ObserveIssuesUseCase,
     private val startInspection: StartInspectionUseCase,
 ) : Presenter.Factory {
     override fun create(
@@ -28,6 +30,7 @@ class DashboardPresenterFactory(
                 observeInspectionSummaries = observeInspectionSummaries,
                 observeAssets = observeAssets,
                 observeTemplates = observeTemplates,
+                observeIssues = observeIssues,
                 startInspection = startInspection,
                 navigator = navigator,
             )

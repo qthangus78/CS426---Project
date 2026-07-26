@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -48,16 +49,19 @@ internal fun DashboardUi(
         DashboardState.Loading -> null
         is DashboardState.Empty -> state.eventSink
         is DashboardState.Content -> state.eventSink
+        is DashboardState.Error -> state.eventSink
     }
     val isAboutVisible = when (state) {
         DashboardState.Loading -> false
         is DashboardState.Empty -> state.isAboutVisible
         is DashboardState.Content -> state.isAboutVisible
+        is DashboardState.Error -> false
     }
     val startInspection = when (state) {
         DashboardState.Loading -> null
         is DashboardState.Empty -> state.startInspection
         is DashboardState.Content -> state.startInspection
+        is DashboardState.Error -> null
     }
 
     Scaffold(
@@ -99,6 +103,26 @@ internal fun DashboardUi(
                             label = "Loading inspections",
                             modifier = Modifier.testTag("dashboard-loading"),
                         )
+                    }
+                }
+
+                is DashboardState.Error -> {
+                    item {
+                        Column(
+                            modifier = Modifier.testTag("dashboard-error"),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            EmptyState(
+                                title = "Dashboard unavailable",
+                                message = state.message,
+                            )
+                            OutlinedButton(
+                                onClick = { state.eventSink(DashboardEvent.RetrySelected) },
+                                modifier = Modifier.testTag("dashboard-retry"),
+                            ) {
+                                Text("Retry")
+                            }
+                        }
                     }
                 }
 
@@ -472,6 +496,24 @@ private fun DashboardEmptyPreview() {
 }
 
 @Preview(
+    name = "Dashboard Error",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 700,
+)
+@Composable
+private fun DashboardErrorPreview() {
+    FieldFlowTheme {
+        DashboardUi(
+            state = DashboardState.Error(
+                message = "Dashboard could not be loaded.",
+                eventSink = {},
+            ),
+        )
+    }
+}
+
+@Preview(
     name = "Dashboard About Dialog",
     showBackground = true,
     widthDp = 411,
@@ -517,6 +559,7 @@ private fun DashboardLongTitlePreview() {
                     totalInspections = 1,
                     inProgressInspections = 1,
                     syncPendingInspections = 0,
+                    pendingIssues = 2,
                 ),
                 heroInspection = previewLongInspection,
                 selectedFilter = InspectionFilterUi.ALL,
@@ -556,12 +599,14 @@ private val previewOverview = DashboardOverviewUi(
     totalInspections = 3,
     inProgressInspections = 1,
     syncPendingInspections = 1,
+    pendingIssues = 2,
 )
 
 private val previewFilteredEmptyOverview = DashboardOverviewUi(
     totalInspections = 1,
     inProgressInspections = 1,
     syncPendingInspections = 0,
+    pendingIssues = 1,
 )
 
 private fun previewContentState(
@@ -586,6 +631,7 @@ private fun previewEmptyState(
             totalInspections = 0,
             inProgressInspections = 0,
             syncPendingInspections = 0,
+            pendingIssues = 0,
         ),
         selectedFilter = InspectionFilterUi.ALL,
         isAboutVisible = isAboutVisible,

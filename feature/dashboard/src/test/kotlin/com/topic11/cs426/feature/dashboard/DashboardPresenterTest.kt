@@ -11,6 +11,7 @@ import com.topic11.cs426.core.navigation.ReportsScreen
 import com.topic11.cs426.core.navigation.SettingsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
 import com.topic11.cs426.core.testing.FakeAssetRepository
+import com.topic11.cs426.core.testing.FakeIssueRepository
 import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.core.testing.RecordingInspectionRepository
@@ -19,12 +20,21 @@ import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
+import com.topic11.cs426.domain.model.IssueId
+import com.topic11.cs426.domain.model.IssueSeverity
+import com.topic11.cs426.domain.model.MaintenanceIssue
+import com.topic11.cs426.domain.model.MaintenanceIssueStatus
 import com.topic11.cs426.domain.model.TemplateId
+import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.usecase.ObserveAssetsUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
+import com.topic11.cs426.domain.usecase.ObserveIssuesUseCase
 import com.topic11.cs426.domain.usecase.ObserveTemplatesUseCase
 import com.topic11.cs426.domain.usecase.StartInspectionUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -43,6 +53,7 @@ class DashboardPresenterTest {
             observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
             observeAssets = ObserveAssetsUseCase(FakeAssetRepository()),
             observeTemplates = ObserveTemplatesUseCase(fakeTemplateRepository()),
+            observeIssues = ObserveIssuesUseCase(FakeIssueRepository()),
             startInspection = StartInspectionUseCase(repository, fakeTemplateRepository()),
             navigator = navigator,
         )
@@ -55,6 +66,7 @@ class DashboardPresenterTest {
             assertEquals(3, content.overview.totalInspections)
             assertEquals(1, content.overview.inProgressInspections)
             assertEquals(1, content.overview.syncPendingInspections)
+            assertEquals(0, content.overview.pendingIssues)
             assertEquals(InspectionFilterUi.ALL, content.selectedFilter)
             assertEquals(false, content.isAboutVisible)
             assertEquals(InspectionTestFixtures.computerLab.id, content.heroInspection?.id)
@@ -83,6 +95,7 @@ class DashboardPresenterTest {
             observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
             observeAssets = ObserveAssetsUseCase(FakeAssetRepository()),
             observeTemplates = ObserveTemplatesUseCase(fakeTemplateRepository()),
+            observeIssues = ObserveIssuesUseCase(FakeIssueRepository()),
             startInspection = StartInspectionUseCase(repository, fakeTemplateRepository()),
             navigator = navigator,
         )
@@ -96,6 +109,7 @@ class DashboardPresenterTest {
             assertEquals(0, empty.overview.totalInspections)
             assertEquals(0, empty.overview.inProgressInspections)
             assertEquals(0, empty.overview.syncPendingInspections)
+            assertEquals(0, empty.overview.pendingIssues)
             assertEquals(InspectionFilterUi.ALL, empty.selectedFilter)
             assertEquals(false, empty.isAboutVisible)
             assertEquals(false, empty.startInspection.isVisible)
@@ -346,6 +360,88 @@ class DashboardPresenterTest {
         assertQuickAccessNavigation(DashboardEvent.SettingsSelected, SettingsScreen)
     }
 
+    @Test
+    fun `overview counts only open and in progress issues as pending`() = runTest {
+        val issueRepository = FakeIssueRepository().apply {
+            addIssue(issue("issue-open", MaintenanceIssueStatus.OPEN))
+            addIssue(issue("issue-in-progress", MaintenanceIssueStatus.IN_PROGRESS))
+            addIssue(issue("issue-resolved", MaintenanceIssueStatus.RESOLVED))
+            addIssue(issue("issue-closed", MaintenanceIssueStatus.CLOSED))
+        }
+        val presenter = presenter(issueRepository = issueRepository)
+
+        presenter.test {
+            awaitItem()
+            val content = awaitItem() as DashboardState.Content
+
+            assertEquals(2, content.overview.pendingIssues)
+        }
+    }
+
+    @Test
+    fun `overview pending issue count updates when an issue is resolved`() = runTest {
+        val issueRepository = FakeIssueRepository()
+        val openIssue = issue("issue-open", MaintenanceIssueStatus.OPEN)
+        issueRepository.addIssue(openIssue)
+        val presenter = presenter(issueRepository = issueRepository)
+
+        presenter.test {
+            awaitItem()
+            assertEquals(1, (awaitItem() as DashboardState.Content).overview.pendingIssues)
+
+            issueRepository.updateIssue(openIssue.copy(status = MaintenanceIssueStatus.RESOLVED))
+
+            assertEquals(0, (awaitItem() as DashboardState.Content).overview.pendingIssues)
+        }
+    }
+
+    @Test
+    fun `present emits error state when an observed flow fails`() = runTest {
+        val presenter = presenter(issueRepository = FlakyIssueRepository(failuresBeforeSuccess = 1))
+
+        presenter.test {
+            assertEquals(DashboardState.Loading, awaitItem())
+
+            val error = awaitItem() as DashboardState.Error
+            assertEquals("Dashboard could not be loaded.", error.message)
+            assertNotNull(error.eventSink)
+        }
+    }
+
+    @Test
+    fun `retry after failure re-observes and emits content`() = runTest {
+        val issueRepository = FlakyIssueRepository(failuresBeforeSuccess = 1)
+        issueRepository.addIssue(issue("issue-open", MaintenanceIssueStatus.OPEN))
+        val presenter = presenter(issueRepository = issueRepository)
+
+        presenter.test {
+            awaitItem()
+            val error = awaitItem() as DashboardState.Error
+
+            error.eventSink(DashboardEvent.RetrySelected)
+
+            val content = awaitItem() as DashboardState.Content
+            assertEquals(3, content.overview.totalInspections)
+            assertEquals(1, content.overview.pendingIssues)
+            assertEquals(2, issueRepository.observeIssuesCalls)
+        }
+    }
+
+    private fun issue(
+        id: String,
+        status: MaintenanceIssueStatus,
+    ): MaintenanceIssue {
+        return MaintenanceIssue(
+            id = IssueId(id),
+            inspectionId = InspectionTestFixtures.computerLab.id,
+            assetId = InspectionTestFixtures.asset1Id,
+            severity = IssueSeverity.CRITICAL,
+            title = "Issue $id",
+            status = status,
+            createdAtMillis = 0L,
+        )
+    }
+
     private suspend fun assertFilter(
         selectedFilter: InspectionFilterUi,
         expectedInspectionIds: List<InspectionId>,
@@ -390,12 +486,14 @@ class DashboardPresenterTest {
         ),
         assetRepository: FakeAssetRepository = FakeAssetRepository(),
         templateRepository: FakeTemplateRepository = fakeTemplateRepository(),
+        issueRepository: IssueRepository = FakeIssueRepository(),
         navigator: FakeNavigator = FakeNavigator(DashboardScreen),
     ): DashboardPresenter {
         return DashboardPresenter(
             observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository),
             observeAssets = ObserveAssetsUseCase(assetRepository),
             observeTemplates = ObserveTemplatesUseCase(templateRepository),
+            observeIssues = ObserveIssuesUseCase(issueRepository),
             startInspection = StartInspectionUseCase(inspectionRepository, templateRepository),
             navigator = navigator,
         )
@@ -422,5 +520,51 @@ class DashboardPresenterTest {
             completedItems = completedItems,
             totalItems = totalItems,
         )
+    }
+}
+
+/**
+ * Fails the first [failuresBeforeSuccess] subscriptions to `observeIssues`, so a retry —
+ * which rebuilds the combined flow — can be observed recovering.
+ */
+private class FlakyIssueRepository(
+    private val failuresBeforeSuccess: Int,
+) : IssueRepository {
+    private val issues = mutableListOf<MaintenanceIssue>()
+
+    var observeIssuesCalls: Int = 0
+        private set
+
+    fun addIssue(issue: MaintenanceIssue) {
+        issues.add(issue)
+    }
+
+    override fun observeIssues(): Flow<List<MaintenanceIssue>> = flow {
+        observeIssuesCalls += 1
+        if (observeIssuesCalls <= failuresBeforeSuccess) {
+            throw IllegalStateException("Issue stream unavailable")
+        }
+        emit(issues.toList())
+    }
+
+    override fun observeIssue(issueId: IssueId): Flow<MaintenanceIssue?> =
+        flowOf(issues.firstOrNull { it.id == issueId })
+
+    override suspend fun getIssue(issueId: IssueId): MaintenanceIssue? =
+        issues.firstOrNull { it.id == issueId }
+
+    override suspend fun getIssuesForInspection(inspectionId: InspectionId): List<MaintenanceIssue> =
+        issues.filter { it.inspectionId == inspectionId }
+
+    override suspend fun createIssue(issue: MaintenanceIssue): IssueId {
+        issues.add(issue)
+        return issue.id
+    }
+
+    override suspend fun updateIssue(issue: MaintenanceIssue) {
+        val index = issues.indexOfFirst { it.id == issue.id }
+        if (index >= 0) {
+            issues[index] = issue
+        }
     }
 }

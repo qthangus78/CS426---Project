@@ -33,6 +33,8 @@ internal fun DashboardOverview(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         DashboardSectionHeader(title = "Inspection overview")
+        // Two rows of two rather than one row of four: at 320dp the fourth tile would
+        // squeeze the labels below a readable width.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -53,6 +55,11 @@ internal fun DashboardOverview(
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.weight(1f),
             )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             MetricTile(
                 value = overview.syncPendingInspections.toString(),
                 label = "Sync pending",
@@ -60,6 +67,16 @@ internal fun DashboardOverview(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.weight(1f),
+            )
+            MetricTile(
+                value = overview.pendingIssues.toString(),
+                label = "Pending issues",
+                marker = "ISSUE",
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("dashboard-pending-issues"),
             )
         }
     }
