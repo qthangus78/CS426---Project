@@ -35,6 +35,7 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 circuit-foundation = { group = "com.slack.circuit", name = "circuit-foundation", version.ref = "circuit" }
+circuit-retained = { group = "com.slack.circuit", name = "circuit-retained", version.ref = "circuit" }
 circuit-runtime = { group = "com.slack.circuit", name = "circuit-runtime", version.ref = "circuit" }
 circuit-runtime-presenter = { group = "com.slack.circuit", name = "circuit-runtime-presenter", version.ref = "circuit" }
 circuit-runtime-screen = { group = "com.slack.circuit", name = "circuit-runtime-screen", version.ref = "circuit" }
