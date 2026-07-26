@@ -113,6 +113,57 @@ class InspectionPresenterTest {
         }
     }
 
+    // ── Unavailable state ──────────────────────────────────────────────────────
+
+    @Test
+    fun `missing inspection resolves to Unavailable instead of loading forever`() = runTest {
+        // The repository only knows a different inspection, so the requested id resolves to null.
+        val otherSession = FakeInspectionRepository.createSession().copy(
+            id = InspectionId("some-other-inspection"),
+        )
+
+        presenter(
+            initialSession = otherSession,
+            inspectionRepository = FakeInspectionRepository(otherSession),
+        ).test {
+            val unavailable = awaitState<InspectionState.Unavailable>()
+            assertEquals("This inspection is no longer available.", unavailable.message)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `BackSelected from Unavailable pops the navigator`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+        val otherSession = FakeInspectionRepository.createSession().copy(
+            id = InspectionId("some-other-inspection"),
+        )
+
+        presenter(
+            navigator = navigator,
+            initialSession = otherSession,
+            inspectionRepository = FakeInspectionRepository(otherSession),
+        ).test {
+            awaitState<InspectionState.Unavailable>().eventSink(InspectionEvent.BackSelected)
+
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `BackSelected while loading pops the navigator`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+
+        presenter(navigator = navigator).test {
+            val loading = awaitItem() as InspectionState.Loading
+            loading.eventSink(InspectionEvent.BackSelected)
+
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── Initial state ──────────────────────────────────────────────────────────
 
     @Test
@@ -196,7 +247,7 @@ class InspectionPresenterTest {
     }
 
     @Test
-    fun `answer note and evidence changes stay local until the draft is saved`() = runTest {
+    fun `answer note and evidence changes are autosaved without an explicit save`() = runTest {
         val inspectionRepository = FakeInspectionRepository.create()
 
         presenter(inspectionRepository = inspectionRepository).test {
@@ -219,8 +270,38 @@ class InspectionPresenterTest {
             assertEquals(ChecklistAnswerUi.Compliance(true), updatedItem.answer)
             assertEquals("Checked locally", updatedItem.note)
             assertEquals(listOf("evidence-local"), updatedItem.evidenceRefs)
-            assertEquals(0, inspectionRepository.saveDraftAttempts)
-            assertTrue(inspectionRepository.savedSession.answers.isEmpty())
+
+            // The debounce window elapses without the inspector pressing "Save Draft".
+            advanceUntilIdle()
+
+            val autosaved = inspectionRepository.savedSession.answers.single()
+            assertEquals(ChecklistAnswerValue.Pass, autosaved.value)
+            assertEquals("Checked locally", autosaved.note)
+            assertEquals(listOf(EvidenceId("evidence-local")), autosaved.evidenceIds)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `BackSelected from Editing flushes the pending draft before popping`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(navigator = navigator, inspectionRepository = inspectionRepository).test {
+            var state = awaitEditing()
+            val firstItem = state.sections.first().items.first()
+
+            state.eventSink(InspectionEvent.AnswerChanged(firstItem.id, ChecklistAnswerUi.Compliance(true)))
+            state = awaitItem() as InspectionState.Editing
+
+            state.eventSink(InspectionEvent.BackSelected)
+
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            assertEquals(
+                ChecklistAnswerValue.Pass,
+                inspectionRepository.savedSession.answers.single().value,
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -254,7 +335,7 @@ class InspectionPresenterTest {
             advanceUntilIdle()
 
             assertEquals(SectionId("section-safety"), inspectionRepository.savedSession.currentSectionId)
-            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -309,7 +390,7 @@ class InspectionPresenterTest {
             advanceUntilIdle()
 
             assertEquals(SectionId("section-equipment"), inspectionRepository.savedSession.currentSectionId)
-            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -362,7 +443,7 @@ class InspectionPresenterTest {
     }
 
     @Test
-    fun `ReviewSelected keeps REVIEWING as UI-only without saving draft`() = runTest {
+    fun `ReviewSelected keeps REVIEWING as a UI-only phase`() = runTest {
         val inspectionRepository = FakeInspectionRepository.create()
 
         presenter(inspectionRepository = inspectionRepository).test {
@@ -374,9 +455,9 @@ class InspectionPresenterTest {
             editing.eventSink(InspectionEvent.ReviewSelected)
 
             val reviewing = awaitItem() as InspectionState.Reviewing
-            assertEquals(0, inspectionRepository.saveDraftAttempts)
+            advanceUntilIdle()
+            // Autosave persists the answers, but the REVIEWING phase itself is never written back.
             assertEquals(InspectionStatus.IN_PROGRESS, inspectionRepository.savedSession.status)
-            assertTrue(inspectionRepository.savedSession.answers.isEmpty())
 
             reviewing.eventSink(InspectionEvent.BackSelected)
 
@@ -601,7 +682,7 @@ class InspectionPresenterTest {
             assertEquals(ChecklistAnswerValue.Pass, savedFirstAnswer.value)
             assertEquals("Checked during walkthrough", savedFirstAnswer.note)
             assertEquals(listOf(EvidenceId("photo-power-1")), savedFirstAnswer.evidenceIds)
-            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
             assertEquals(InspectionStatus.IN_PROGRESS, inspectionRepository.savedSession.status)
 
             state.eventSink(InspectionEvent.ReviewSelected)
@@ -681,7 +762,7 @@ class InspectionPresenterTest {
 
             val failed = awaitState<InspectionState.ValidationFailed>()
             assertTrue("Expected domain error message", failed.errors.any { it.message.contains("NOT_STARTED") })
-            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
             assertEquals(InspectionStatus.NOT_STARTED, inspectionRepository.savedSession.status)
             assertEquals(
                 FakeSession.sections.flatMap { it.items }.count { it.required },
@@ -711,6 +792,31 @@ class InspectionPresenterTest {
     }
 
     // ── BackSelected from Editing ──────────────────────────────────────────────
+
+    @Test
+    fun `rapid double BackSelected from Editing pops exactly once`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen, screen)
+        val inspectionRepository = FakeInspectionRepository.create()
+
+        presenter(navigator = navigator, inspectionRepository = inspectionRepository).test {
+            var state = awaitEditing()
+            val firstItem = state.sections.first().items.first()
+
+            state.eventSink(InspectionEvent.AnswerChanged(firstItem.id, ChecklistAnswerUi.Compliance(true)))
+            state = awaitItem() as InspectionState.Editing
+
+            // The draft flush makes the pop asynchronous, so the editor is still on screen and
+            // tappable while the write is in flight. A second back must not unwind past the
+            // dashboard, which the root navigator would turn into finishing the Activity.
+            state.eventSink(InspectionEvent.BackSelected)
+            state.eventSink(InspectionEvent.BackSelected)
+            advanceUntilIdle()
+
+            assertEquals(screen, navigator.awaitPop().poppedScreen)
+            navigator.expectNoPopEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     fun `BackSelected from Editing pops the navigator`() = runTest {
@@ -771,7 +877,7 @@ class InspectionPresenterTest {
             assertEquals(ChecklistAnswerValue.Pass, saved.answers.single().value)
             assertEquals("Needs follow-up", saved.answers.single().note)
             assertEquals(listOf(EvidenceId("photo-1")), saved.answers.single().evidenceIds)
-            assertEquals(1, inspectionRepository.saveDraftAttempts)
+            assertTrue(inspectionRepository.saveDraftAttempts >= 1)
             cancelAndIgnoreRemainingEvents()
         }
 

@@ -33,14 +33,18 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:navigation"))
     implementation(project(":domain"))
+    // BackHandler — the checklist has to intercept system back itself to flush its draft.
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.circuit.retained)
     implementation(libs.circuit.runtime)
     implementation(libs.circuit.runtime.presenter)
     implementation(libs.circuit.runtime.ui)
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.circuit.test)

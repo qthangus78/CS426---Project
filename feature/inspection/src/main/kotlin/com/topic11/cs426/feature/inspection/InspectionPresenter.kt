@@ -1,12 +1,14 @@
 package com.topic11.cs426.feature.inspection
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.Presenter
 import com.topic11.cs426.core.navigation.InspectionScreen
@@ -21,6 +23,7 @@ import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionSection
 import com.topic11.cs426.domain.model.InspectionSession
 import com.topic11.cs426.domain.model.InspectionStatus
+import com.topic11.cs426.domain.model.InspectionTemplate
 import com.topic11.cs426.domain.model.InspectionValidationError
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
@@ -30,6 +33,7 @@ import com.topic11.cs426.domain.usecase.SaveInspectionDraftUseCase
 import com.topic11.cs426.domain.usecase.ValidateInspectionUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -48,32 +52,85 @@ internal class InspectionPresenter(
 
     @Composable
     override fun present(): InspectionState {
-        var requestedPhase by remember(screen.inspectionId) { mutableStateOf<WorkflowPhase?>(null) }
-        var validationErrors by remember { mutableStateOf(emptyList<ValidationError>()) }
-        var draftSession by remember { mutableStateOf<InspectionSession?>(null) }
-        var saveError by remember { mutableStateOf<String?>(null) }
-        var completionResult by remember { mutableStateOf<CompleteInspectionResult.Success?>(null) }
+        // Retained so a configuration change (rotation) does not discard unsaved checklist work.
+        var requestedPhase by rememberRetained(screen.inspectionId) { mutableStateOf<WorkflowPhase?>(null) }
+        var validationErrors by rememberRetained(screen.inspectionId) { mutableStateOf(emptyList<ValidationError>()) }
+        var draftSession by rememberRetained(screen.inspectionId) { mutableStateOf<InspectionSession?>(null) }
+        var saveError by rememberRetained(screen.inspectionId) { mutableStateOf<String?>(null) }
+        var completionResult by rememberRetained(screen.inspectionId) {
+            mutableStateOf<CompleteInspectionResult.Success?>(null)
+        }
         val coroutineScope = rememberCoroutineScope()
+        // Deliberately not retained: the flush coroutine dies with the composition, so a rotation
+        // mid-leave must not come back with back permanently disabled.
+        var isLeaving by remember { mutableStateOf(false) }
 
         @OptIn(ExperimentalCoroutinesApi::class)
-        val sessionWithTemplate by remember(screen.inspectionId) {
+        val load by remember(screen.inspectionId) {
             observeInspection(InspectionId(screen.inspectionId))
                 .flatMapLatest { session ->
                     if (session == null) {
-                        flowOf(null to null)
+                        flowOf(SessionLoad.Unavailable)
                     } else {
-                        observeTemplate(session.templateId)
-                            .map { template -> session to template }
+                        observeTemplate(session.templateId).map { template ->
+                            if (template == null) {
+                                SessionLoad.Unavailable
+                            } else {
+                                SessionLoad.Ready(session, template)
+                            }
+                        }
                     }
                 }
-        }.collectAsState(initial = null to null)
+        }.collectAsState(initial = SessionLoad.Loading)
 
-        val (observedSession, template) = sessionWithTemplate
-        if (observedSession == null || template == null) {
-            return InspectionState.Loading(eventSink = {})
+        // Flushes any debounced edit before leaving, so back never silently drops work.
+        // Guarded because the flush makes the pop asynchronous: a second back arriving while the
+        // draft is still being written would pop twice and unwind past the dashboard, which the
+        // root navigator turns into finishing the Activity.
+        val leaveScreen: () -> Unit = remember(navigator, coroutineScope, saveInspectionDraft) {
+            {
+                if (!isLeaving) {
+                    isLeaving = true
+                    val pending = draftSession
+                    if (pending == null) {
+                        navigator.pop()
+                    } else {
+                        coroutineScope.launch {
+                            try {
+                                saveInspectionDraft(pending)
+                            } catch (exception: Exception) {
+                                if (exception is CancellationException) throw exception
+                                // The autosave path already surfaced the error; do not trap the user here.
+                            }
+                            navigator.pop()
+                        }
+                    }
+                }
+                Unit
+            }
         }
 
-        // Keep local edits in one complete domain session until the draft is saved.
+        val ready = load as? SessionLoad.Ready
+        if (ready == null) {
+            val eventSink: (InspectionEvent) -> Unit = remember(leaveScreen) {
+                { event ->
+                    if (event is InspectionEvent.BackSelected) leaveScreen()
+                }
+            }
+            return if (load is SessionLoad.Unavailable) {
+                InspectionState.Unavailable(
+                    message = "This inspection is no longer available.",
+                    eventSink = eventSink,
+                )
+            } else {
+                InspectionState.Loading(eventSink = eventSink)
+            }
+        }
+
+        val observedSession = ready.session
+        val template = ready.template
+
+        // Local edits accumulate in one complete domain session that autosave and the back flush persist.
         val session = draftSession?.takeIf { it.id == observedSession.id } ?: observedSession
         val phase = requestedPhase ?: observedSession.status.toWorkflowPhase()
         val sections = remember(template) {
@@ -109,6 +166,21 @@ internal class InspectionPresenter(
             )
         }
 
+        // Debounced autosave: every edit restarts this effect, so the draft is persisted shortly
+        // after the inspector stops typing instead of only when they remember to press Save Draft.
+        val pendingDraft = draftSession.takeIf { phase != WorkflowPhase.Completed }
+        LaunchedEffect(pendingDraft) {
+            if (pendingDraft == null) return@LaunchedEffect
+            delay(AUTO_SAVE_DEBOUNCE_MILLIS)
+            try {
+                saveInspectionDraft(pendingDraft)
+                saveError = null
+            } catch (exception: Exception) {
+                if (exception is CancellationException) throw exception
+                saveError = "Couldn't save draft."
+            }
+        }
+
         val eventSink: (InspectionEvent) -> Unit = remember(
             navigator,
             session,
@@ -117,6 +189,7 @@ internal class InspectionPresenter(
             currentSectionIndex,
             phase,
             coroutineScope,
+            leaveScreen,
             saveInspectionDraft,
             validateInspection,
             completeInspection,
@@ -124,7 +197,7 @@ internal class InspectionPresenter(
             { event ->
                 when (event) {
                     InspectionEvent.BackSelected -> when (phase) {
-                        WorkflowPhase.Editing, WorkflowPhase.Completed -> navigator.pop()
+                        WorkflowPhase.Editing, WorkflowPhase.Completed -> leaveScreen()
                         WorkflowPhase.Reviewing, WorkflowPhase.ValidationFailed -> {
                             requestedPhase = WorkflowPhase.Editing
                         }
@@ -216,6 +289,9 @@ internal class InspectionPresenter(
                                 when (val result = completeInspection(session.id)) {
                                     is CompleteInspectionResult.Success -> {
                                         completionResult = result
+                                        // Drop the in-progress draft so autosave and the back flush
+                                        // can never overwrite the completed row with stale answers.
+                                        draftSession = null
                                         requestedPhase = WorkflowPhase.Completed
                                     }
                                     is CompleteInspectionResult.ValidationFailed -> {
@@ -278,6 +354,24 @@ internal class InspectionPresenter(
         }
     }
 
+}
+
+/** How long the presenter waits after the last edit before persisting the draft. */
+private const val AUTO_SAVE_DEBOUNCE_MILLIS = 750L
+
+/**
+ * Distinguishes "still loading" from "cannot be opened", so a missing inspection or template
+ * surfaces as [InspectionState.Unavailable] instead of an endless spinner.
+ */
+private sealed interface SessionLoad {
+    data object Loading : SessionLoad
+
+    data object Unavailable : SessionLoad
+
+    data class Ready(
+        val session: InspectionSession,
+        val template: InspectionTemplate,
+    ) : SessionLoad
 }
 
 private enum class WorkflowPhase { Editing, Reviewing, ValidationFailed, Completed }

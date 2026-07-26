@@ -1,6 +1,7 @@
 package com.topic11.cs426.feature.inspection
 
 import android.text.format.DateFormat
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,9 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.topic11.cs426.core.designsystem.EmptyState
 import com.topic11.cs426.core.designsystem.FieldFlowTopAppBar
 import com.topic11.cs426.core.designsystem.LoadingContent
 import java.util.Date
@@ -42,8 +45,19 @@ internal fun InspectionUi(
     inspectionId: String = "",
     modifier: Modifier = Modifier,
 ) {
+    // Under gesture navigation the system back is how inspectors actually leave a screen, so it has
+    // to run the same flush-then-leave path as the top bar's "Back". Left to the navigator's own back
+    // handling it would pop straight past the debounced draft and drop the last edit.
+    //
+    // Declared unconditionally and above the state branches: back handlers are dispatched last
+    // registered first, and keeping this call out of any conditional keeps its position in that order
+    // stable across recompositions. Being composed inside NavigableCircuitContent puts it after the
+    // navigator's handler, so it is the one that runs.
+    BackHandler { state.eventSink(InspectionEvent.BackSelected) }
+
     when (state) {
         is InspectionState.Loading -> InspectionLoadingScreen(state = state, modifier = modifier)
+        is InspectionState.Unavailable -> InspectionUnavailableScreen(state = state, modifier = modifier)
         is InspectionState.Editing -> InspectionEditingScreen(
             state = state,
             inspectionId = inspectionId,
@@ -62,11 +76,57 @@ private fun InspectionLoadingScreen(
     state: InspectionState.Loading,
     modifier: Modifier = Modifier,
 ) {
-    Scaffold(modifier = modifier) { innerPadding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            // Keep the back affordance while loading so a slow or stuck load is still escapable.
+            FieldFlowTopAppBar(
+                title = "Inspection",
+                onBackClick = { state.eventSink(InspectionEvent.BackSelected) },
+            )
+        },
+    ) { innerPadding ->
         LoadingContent(
             label = "Loading inspection…",
             modifier = Modifier.padding(innerPadding),
         )
+    }
+}
+
+// ── Unavailable ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun InspectionUnavailableScreen(
+    state: InspectionState.Unavailable,
+    modifier: Modifier = Modifier,
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            FieldFlowTopAppBar(
+                title = "Inspection",
+                onBackClick = { state.eventSink(InspectionEvent.BackSelected) },
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(PaddingValues(horizontal = 20.dp, vertical = 16.dp))
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            EmptyState(
+                title = "Inspection unavailable",
+                message = state.message,
+            )
+            Button(
+                onClick = { state.eventSink(InspectionEvent.BackSelected) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Back to Dashboard")
+            }
+        }
     }
 }
 
@@ -92,7 +152,8 @@ private fun InspectionEditingScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .testTag("inspection-checklist"),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -455,6 +516,9 @@ private fun ChecklistItemRow(
                     val isNotApplicable = item.answer == ChecklistAnswerUi.NotApplicable
                     OutlinedButton(
                         onClick = { onAnswerChange(ChecklistAnswerUi.Compliance(isCompliant = true)) },
+                        // Tagged per item so a test can answer one specific item; "Pass" alone repeats
+                        // once per row and cannot identify which one was tapped.
+                        modifier = Modifier.testTag("inspection-answer-pass-${item.id}"),
                         colors = if (isCompliant == true) {
                             ButtonDefaults.outlinedButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,

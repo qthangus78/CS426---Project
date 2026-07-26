@@ -13,6 +13,9 @@ import com.topic11.cs426.domain.model.EvidenceReference
  *
  *     Loading -> Editing -> (Reviewing | ValidationFailed) -> Completed
  *
+ * [InspectionState.Unavailable] is the terminal branch off Loading for an inspection that cannot be
+ * opened at all, so the screen never becomes a dead end.
+ *
  * The checklist models below ([InspectionSectionUi], [ChecklistItemUi], [ChecklistAnswerUi],
  * [ValidationError]) are feature-owned presentation models. The app boundary passes persisted
  * [EvidenceReference] results back through events, while the Presenter maps Domain sessions,
@@ -24,6 +27,15 @@ sealed interface InspectionState : CircuitUiState {
 
     /** The session is being loaded; nothing to show yet. */
     data class Loading(
+        override val eventSink: (InspectionEvent) -> Unit,
+    ) : InspectionState
+
+    /**
+     * The inspection or its template could not be resolved — a deleted draft, a stale deep link, or
+     * a template revision that no longer exists. The screen stays escapable via [InspectionEvent.BackSelected].
+     */
+    data class Unavailable(
+        val message: String,
         override val eventSink: (InspectionEvent) -> Unit,
     ) : InspectionState
 
