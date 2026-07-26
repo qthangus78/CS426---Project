@@ -3,6 +3,7 @@ package com.topic11.cs426.feature.inspection
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiEvent
 import com.slack.circuit.runtime.CircuitUiState
+import com.topic11.cs426.domain.model.EvidenceReference
 
 /**
  * Presentation contract for the Inspection screen.
@@ -12,11 +13,10 @@ import com.slack.circuit.runtime.CircuitUiState
  *
  *     Loading -> Editing -> (Reviewing | ValidationFailed) -> Completed
  *
- * The models below ([InspectionSectionUi], [ChecklistItemUi], [ChecklistAnswerUi],
- * [ValidationError]) are feature-owned presentation models. They intentionally do NOT
- * reference domain types so this slice can run on fake data in Phase 1. When the domain
- * session contract is ready, the Presenter maps domain models onto these UI models — the
- * mapping is the only thing that changes, not this contract.
+ * The checklist models below ([InspectionSectionUi], [ChecklistItemUi], [ChecklistAnswerUi],
+ * [ValidationError]) are feature-owned presentation models. The app boundary passes persisted
+ * [EvidenceReference] results back through events, while the Presenter maps domain sessions onto
+ * UI models.
  */
 @Immutable
 sealed interface InspectionState : CircuitUiState {
@@ -91,10 +91,21 @@ sealed interface InspectionEvent : CircuitUiEvent {
         val note: String,
     ) : InspectionEvent
 
-    /** A piece of evidence was attached to a checklist item. */
-    data class EvidenceAdded(
+    /** The UI asked the app boundary to capture or pick evidence for a checklist item. */
+    data class EvidenceCaptureRequested(
         val itemId: String,
-        val evidenceRef: String,
+    ) : InspectionEvent
+
+    /** A piece of evidence was durably persisted and can be attached to the draft. */
+    data class EvidenceCaptured(
+        val itemId: String,
+        val reference: EvidenceReference,
+    ) : InspectionEvent
+
+    /** Evidence capture or persistence failed before a reference could be attached. */
+    data class EvidenceCaptureFailed(
+        val itemId: String,
+        val message: String,
     ) : InspectionEvent
 
     /** Move to the previous section while editing. */
@@ -177,3 +188,21 @@ data class ValidationError(
     val itemId: String,
     val message: String,
 )
+
+fun interface InspectionEvidenceCaptureHandler {
+    fun requestCapture(request: InspectionEvidenceCaptureRequest)
+}
+
+@Immutable
+data class InspectionEvidenceCaptureRequest(
+    val inspectionId: String,
+    val itemId: String,
+    val source: InspectionEvidenceCaptureSource,
+    val onCaptured: (EvidenceReference) -> Unit,
+    val onFailure: (String) -> Unit,
+)
+
+enum class InspectionEvidenceCaptureSource {
+    Camera,
+    Gallery,
+}

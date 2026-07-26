@@ -1,17 +1,26 @@
 package com.topic11.cs426.feature.dashboard
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.topic11.cs426.core.designsystem.EmptyState
@@ -43,6 +52,11 @@ internal fun DashboardUi(
         DashboardState.Loading -> false
         is DashboardState.Empty -> state.isAboutVisible
         is DashboardState.Content -> state.isAboutVisible
+    }
+    val startInspection = when (state) {
+        DashboardState.Loading -> null
+        is DashboardState.Empty -> state.startInspection
+        is DashboardState.Content -> state.startInspection
     }
 
     Scaffold(
@@ -170,6 +184,12 @@ internal fun DashboardUi(
             },
         )
     }
+    if (aboutEventSink != null && startInspection?.isVisible == true) {
+        StartInspectionDialog(
+            state = startInspection,
+            eventSink = aboutEventSink,
+        )
+    }
 }
 
 @Composable
@@ -190,6 +210,132 @@ private fun InspectionSummaryRow(
     )
 }
 
+@Composable
+private fun StartInspectionDialog(
+    state: StartInspectionUi,
+    eventSink: (DashboardEvent) -> Unit,
+) {
+    AlertDialog(
+        modifier = Modifier.testTag("start-inspection-dialog"),
+        onDismissRequest = { eventSink(DashboardEvent.StartInspectionDismissed) },
+        title = { Text("Start inspection") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                state.errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Text(
+                    text = "Asset",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                if (state.assets.isEmpty()) {
+                    Text(
+                        text = "No assets available",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    state.assets.forEach { asset ->
+                        StartInspectionOptionRow(
+                            title = asset.name,
+                            subtitle = asset.subtitle,
+                            selected = asset.id == state.selectedAssetId,
+                            onClick = {
+                                eventSink(DashboardEvent.StartInspectionAssetSelected(asset.id))
+                            },
+                        )
+                    }
+                }
+                Text(
+                    text = "Template revision",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                if (state.templates.isEmpty()) {
+                    Text(
+                        text = "No templates available",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    state.templates.forEach { template ->
+                        StartInspectionOptionRow(
+                            title = template.name,
+                            subtitle = template.versionLabel,
+                            selected = template.id == state.selectedTemplateId,
+                            onClick = {
+                                eventSink(DashboardEvent.StartInspectionTemplateSelected(template.id))
+                            },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                enabled = state.canConfirm,
+                onClick = { eventSink(DashboardEvent.StartInspectionConfirmed) },
+                modifier = Modifier.testTag("start-inspection-confirm"),
+            ) {
+                Text(if (state.isCreating) "Starting..." else "Start")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(
+                enabled = !state.isCreating,
+                onClick = { eventSink(DashboardEvent.StartInspectionDismissed) },
+            ) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
+@Composable
+private fun StartInspectionOptionRow(
+    title: String,
+    subtitle: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            subtitle?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
 @Preview(
     name = "Dashboard Content",
     showBackground = true,
@@ -206,6 +352,7 @@ private fun DashboardContentPreview() {
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -241,6 +388,7 @@ private fun DashboardWithHeroPreview() {
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -266,6 +414,7 @@ private fun DashboardFilteredPreview() {
                 selectedFilter = InspectionFilterUi.SYNC_PENDING,
                 filteredInspections = filteredInspections,
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -288,6 +437,7 @@ private fun DashboardFilteredEmptyPreview() {
                 selectedFilter = InspectionFilterUi.SYNC_PENDING,
                 filteredInspections = emptyList(),
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -360,6 +510,7 @@ private fun DashboardLongTitlePreview() {
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = listOf(previewLongInspection),
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -382,6 +533,7 @@ private fun DashboardNarrowPreview() {
                 selectedFilter = InspectionFilterUi.ALL,
                 filteredInspections = previewInspections,
                 isAboutVisible = false,
+                startInspection = previewStartInspection,
                 eventSink = {},
             ),
         )
@@ -409,6 +561,7 @@ private fun previewContentState(
         selectedFilter = InspectionFilterUi.ALL,
         filteredInspections = previewInspections,
         isAboutVisible = isAboutVisible,
+        startInspection = previewStartInspection,
         eventSink = {},
     )
 }
@@ -424,6 +577,7 @@ private fun previewEmptyState(
         ),
         selectedFilter = InspectionFilterUi.ALL,
         isAboutVisible = isAboutVisible,
+        startInspection = previewStartInspection,
         eventSink = {},
     )
 }
@@ -470,4 +624,26 @@ private val previewLongInspection = InspectionSummaryUi(
     totalItems = 14,
     progressFraction = 0.21f,
     filter = InspectionFilterUi.IN_PROGRESS,
+)
+
+private val previewStartInspection = StartInspectionUi(
+    isVisible = false,
+    isCreating = false,
+    assets = listOf(
+        StartInspectionAssetUi(
+            id = com.topic11.cs426.domain.model.AssetId("sample-asset-lab-i44"),
+            name = "Computer Lab I.44",
+            subtitle = "LAB-I44 • HCMUS",
+        ),
+    ),
+    templates = listOf(
+        StartInspectionTemplateUi(
+            id = com.topic11.cs426.domain.model.TemplateId("sample-template-v1"),
+            name = "Sample Facility Inspection",
+            versionLabel = "v1 • 1 sections",
+        ),
+    ),
+    selectedAssetId = com.topic11.cs426.domain.model.AssetId("sample-asset-lab-i44"),
+    selectedTemplateId = com.topic11.cs426.domain.model.TemplateId("sample-template-v1"),
+    errorMessage = null,
 )

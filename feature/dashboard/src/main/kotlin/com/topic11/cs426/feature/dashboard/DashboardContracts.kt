@@ -4,7 +4,9 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiEvent
 import com.slack.circuit.runtime.CircuitUiState
 import com.topic11.cs426.core.designsystem.StatusTone
+import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.InspectionId
+import com.topic11.cs426.domain.model.TemplateId
 
 @Immutable
 sealed interface DashboardState : CircuitUiState {
@@ -17,6 +19,7 @@ sealed interface DashboardState : CircuitUiState {
         val selectedFilter: InspectionFilterUi,
         val filteredInspections: List<InspectionSummaryUi>,
         val isAboutVisible: Boolean,
+        val startInspection: StartInspectionUi,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 
@@ -25,6 +28,7 @@ sealed interface DashboardState : CircuitUiState {
         val overview: DashboardOverviewUi,
         val selectedFilter: InspectionFilterUi,
         val isAboutVisible: Boolean,
+        val startInspection: StartInspectionUi,
         val eventSink: (DashboardEvent) -> Unit,
     ) : DashboardState
 }
@@ -57,10 +61,48 @@ data class InspectionSummaryUi(
     val filter: InspectionFilterUi?,
 )
 
+@Immutable
+data class StartInspectionUi(
+    val isVisible: Boolean,
+    val isCreating: Boolean,
+    val assets: List<StartInspectionAssetUi>,
+    val templates: List<StartInspectionTemplateUi>,
+    val selectedAssetId: AssetId?,
+    val selectedTemplateId: TemplateId?,
+    val errorMessage: String?,
+) {
+    val canConfirm: Boolean
+        get() = !isCreating && selectedAssetId != null && selectedTemplateId != null
+}
+
+@Immutable
+data class StartInspectionAssetUi(
+    val id: AssetId,
+    val name: String,
+    val subtitle: String?,
+)
+
+@Immutable
+data class StartInspectionTemplateUi(
+    val id: TemplateId,
+    val name: String,
+    val versionLabel: String,
+)
+
 sealed interface DashboardEvent : CircuitUiEvent {
     data class InspectionSelected(val inspectionId: InspectionId) : DashboardEvent
 
     data class FilterSelected(val filter: InspectionFilterUi) : DashboardEvent
+
+    data object StartInspectionSelected : DashboardEvent
+
+    data object StartInspectionDismissed : DashboardEvent
+
+    data class StartInspectionAssetSelected(val assetId: AssetId) : DashboardEvent
+
+    data class StartInspectionTemplateSelected(val templateId: TemplateId) : DashboardEvent
+
+    data object StartInspectionConfirmed : DashboardEvent
 
     data object AboutSelected : DashboardEvent
 

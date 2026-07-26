@@ -1,6 +1,6 @@
 # FieldFlow
 
-FieldFlow is an Android inspection-workflow project for asset and facility inspections. The repository is a functional prototype: it contains a complete Domain workflow, a Circuit-based inspection UI, and an implemented Room/Data foundation. The app runtime still uses deterministic in-memory demo repositories while the Room-backed graph is integrated.
+FieldFlow is an Android inspection-workflow project for asset and facility inspections. The repository is a functional prototype: it contains a complete Domain workflow, a Circuit-based inspection UI, and an app runtime backed by the implemented Room/Data foundation.
 
 Architecture: **Circuit-Based Feature-Modular Clean Architecture**.
 
@@ -15,13 +15,13 @@ Implemented:
 - Slack Circuit screens, presenter/UI factories, Dashboard, and an editable Inspection workflow with draft save, validation, review, completion, notes, and evidence references;
 - Room database version 2 with exported schemas, explicit migration, DAOs, draft recovery and pending-sync tests;
 - Data-layer Room summary repository/mapping, sample-data seeder, Android-managed evidence storage, and deterministic fake remote-sync adapter;
-- deterministic `DemoInspectionRepository`, `DemoTemplateRepository`, and `DemoIssueRepository` used by the current app composition;
+- `FieldFlowCompositionRoot` opens `FieldFlowDatabase` with migrations, seeds sample data, and binds Room-backed inspection, template, and asset repositories;
 - unit coverage for Domain, Data, Room database, Dashboard, Inspection, and Reports; plus Compose navigation smoke tests.
 
 Not yet integrated or implemented end-to-end:
 
-- wiring Room-backed repositories, database seeding, evidence storage, and sync into `FieldFlowCompositionRoot`;
-- complete Room implementations for every Domain port and real background/remote synchronization;
+- runtime wiring for Android-managed evidence storage and fake/background synchronization;
+- complete production implementations for every Domain port and real background/remote synchronization;
 - asset, template, and issue management UIs;
 - report history and PDF/JSON export adapters;
 - settings, authentication, and backend integration.
@@ -47,13 +47,13 @@ Feature modules must not depend on `:data` or `:core:database`. `:domain` must n
 
 ```text
 DashboardUi -> DashboardPresenter -> ObserveInspectionSummariesUseCase
-    -> InspectionRepository -> DemoInspectionRepository (current app binding)
+    -> InspectionRepository -> RoomInspectionRepository -> FieldFlowDatabase
 
 InspectionUi -> InspectionPresenter -> draft/validate/complete Domain use cases
-    -> DemoInspectionRepository + DemoTemplateRepository + DemoIssueRepository
+    -> RoomInspectionRepository + RoomTemplateRepository + RoomAssetRepository
 
 Room/Data foundation -> `:core:database` DAOs -> `:data` mappings/adapters
-    -> ready for composition-root integration
+    -> integrated in `FieldFlowCompositionRoot` for inspection runtime
 ```
 
 ## Build Prerequisites

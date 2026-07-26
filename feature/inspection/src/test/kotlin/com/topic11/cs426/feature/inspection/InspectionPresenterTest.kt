@@ -14,6 +14,7 @@ import com.topic11.cs426.domain.model.ChecklistItem
 import com.topic11.cs426.domain.model.ChecklistItemId
 import com.topic11.cs426.domain.model.CompletedInspection
 import com.topic11.cs426.domain.model.EvidenceId
+import com.topic11.cs426.domain.model.EvidenceReference
 import com.topic11.cs426.domain.model.InspectionAnswer
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionSection
@@ -203,7 +204,12 @@ class InspectionPresenterTest {
             state = awaitItem() as InspectionState.Editing
             state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Checked locally"))
             state = awaitItem() as InspectionState.Editing
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "evidence-local"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("evidence-local", firstItem.id),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
 
             val updatedItem = state.sections.first().items.first()
@@ -421,7 +427,12 @@ class InspectionPresenterTest {
             state = awaitItem() as InspectionState.Editing
             state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Checked during follow-up"))
             state = awaitItem() as InspectionState.Editing
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-power-1"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-power-1", firstItem.id),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
             state.eventSink(InspectionEvent.AnswerChanged(criticalItemId, ChecklistAnswerUi.Compliance(false)))
             state = awaitItem() as InspectionState.Editing
@@ -496,7 +507,12 @@ class InspectionPresenterTest {
                 state.eventSink(InspectionEvent.AnswerChanged(item.id, answer))
                 state = awaitItem() as InspectionState.Editing
             }
-            state.eventSink(InspectionEvent.EvidenceAdded("item-fire", "evidence-fire-1"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    "item-fire",
+                    evidenceReference("evidence-fire-1", "item-fire"),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
 
             state.eventSink(InspectionEvent.ReviewSelected)
@@ -542,7 +558,12 @@ class InspectionPresenterTest {
             state = awaitState()
             state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Checked during walkthrough"))
             state = awaitState()
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-power-1"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-power-1", firstItem.id),
+                ),
+            )
             state = awaitState()
 
             state.eventSink(InspectionEvent.SaveDraftSelected)
@@ -706,7 +727,12 @@ class InspectionPresenterTest {
             state = awaitItem() as InspectionState.Editing
             state.eventSink(InspectionEvent.NoteChanged(firstItem.id, "Needs follow-up"))
             state = awaitItem() as InspectionState.Editing
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-1"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-1", firstItem.id),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
             state.eventSink(InspectionEvent.NextSection)
             state = awaitItem() as InspectionState.Editing
@@ -765,16 +791,21 @@ class InspectionPresenterTest {
         }
     }
 
-    // ── EvidenceAdded ─────────────────────────────────────────────────────────
+    // ── EvidenceCaptured ──────────────────────────────────────────────────────
 
     @Test
-    fun `EvidenceAdded retains the evidence reference for the item`() = runTest {
+    fun `EvidenceCaptured retains the persisted evidence reference for the item`() = runTest {
         presenter().test {
             val editing = awaitEditing()
             val firstItem = editing.sections.first().items.first()
             assertEquals(0, firstItem.evidenceCount)
 
-            editing.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-stub"))
+            editing.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-stub", firstItem.id),
+                ),
+            )
 
             val updated = awaitItem() as InspectionState.Editing
             assertEquals(1, updated.sections.first().items.first().evidenceCount)
@@ -784,17 +815,67 @@ class InspectionPresenterTest {
     }
 
     @Test
-    fun `EvidenceAdded accumulates count on repeated calls`() = runTest {
+    fun `EvidenceCaptured accumulates count on repeated calls`() = runTest {
         presenter().test {
             var state = awaitEditing()
             val firstItem = state.sections.first().items.first()
 
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-1"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-1", firstItem.id),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
-            state.eventSink(InspectionEvent.EvidenceAdded(firstItem.id, "photo-2"))
+            state.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-2", firstItem.id),
+                ),
+            )
             state = awaitItem() as InspectionState.Editing
 
             assertEquals(2, state.sections.first().items.first().evidenceCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `EvidenceCaptured with mismatched item keeps draft unchanged and shows error`() = runTest {
+        presenter().test {
+            val editing = awaitEditing()
+            val firstItem = editing.sections.first().items.first()
+
+            editing.eventSink(
+                InspectionEvent.EvidenceCaptured(
+                    firstItem.id,
+                    evidenceReference("photo-wrong-item", "item-fire"),
+                ),
+            )
+
+            val updated = awaitItem() as InspectionState.Editing
+            assertEquals("Couldn't attach evidence to this item.", updated.saveError)
+            assertEquals(0, updated.sections.first().items.first().evidenceCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `EvidenceCaptureFailed shows capture error without changing evidence`() = runTest {
+        presenter().test {
+            val editing = awaitEditing()
+            val firstItem = editing.sections.first().items.first()
+
+            editing.eventSink(
+                InspectionEvent.EvidenceCaptureFailed(
+                    itemId = firstItem.id,
+                    message = "Couldn't attach evidence.",
+                ),
+            )
+
+            val updated = awaitItem() as InspectionState.Editing
+            assertEquals("Couldn't attach evidence.", updated.saveError)
+            assertEquals(0, updated.sections.first().items.first().evidenceCount)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -824,6 +905,19 @@ class InspectionPresenterTest {
 }
 
 // ── Test fakes ────────────────────────────────────────────────────────────────
+
+private fun evidenceReference(
+    id: String,
+    itemId: String,
+    inspectionId: InspectionId = InspectionId("computer-lab-i-44"),
+) = EvidenceReference(
+    id = EvidenceId(id),
+    inspectionId = inspectionId,
+    checklistItemId = ChecklistItemId(itemId),
+    uriString = "fieldflow-evidence://managed/$id",
+    mimeType = "image/jpeg",
+    createdAtMillis = 3_000L,
+)
 
 /**
  * Minimal fake that returns a single in-progress [InspectionSession] for the

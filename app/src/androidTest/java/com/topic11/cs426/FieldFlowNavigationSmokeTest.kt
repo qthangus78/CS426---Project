@@ -38,6 +38,27 @@ class FieldFlowNavigationSmokeTest {
         assertDashboardVisible()
     }
 
+    @Test
+    fun dashboardStartInspectionCreatesDraftAndOpensInspection() {
+        assertDashboardVisible()
+
+        composeRule
+            .onNodeWithTag("dashboard-start-inspection")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+
+        composeRule.onNodeWithTag("start-inspection-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("start-inspection-confirm").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule
+                .onAllNodesWithText("Section", substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText("Section", substring = true).assertIsDisplayed()
+    }
+
     private fun assertDashboardVisible() {
         composeRule.onNodeWithTag("dashboard-root").assertIsDisplayed()
         composeRule.onNodeWithText("Dashboard").assertIsDisplayed()

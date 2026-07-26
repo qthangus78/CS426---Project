@@ -16,8 +16,9 @@ This repository is a multi-module Android project. Agents should treat the exist
 - Local project docs own FieldFlow facts. External sources are used only to improve agent/tool behavior or verify framework guidance.
 - If a more specific `AGENTS.md` is added under a subtree later, the closer file should own rules for that subtree.
 - Treat the checked-in source, README, and module graph as the current implementation state. The proposal is product context only.
-- Room database version 2, DAOs, migrations, mappings, seeding, evidence storage, and fake sync exist. The app composition root 
-  still uses deterministic demo repositories; do not claim Room is runtime-wired until `:app` changes.
+- Room database version 2, DAOs, migrations, mappings, seeding, evidence storage, and fake sync exist. The app composition root
+  opens Room with migrations, seeds sample data, and binds Room-backed inspection/template/asset repositories; evidence storage
+  and fake sync are not runtime-wired yet.
 
 ## Read Before Editing
 

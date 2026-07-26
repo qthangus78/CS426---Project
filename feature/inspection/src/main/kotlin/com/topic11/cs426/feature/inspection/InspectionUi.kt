@@ -39,11 +39,16 @@ import java.util.Date
 @Composable
 internal fun InspectionUi(
     state: InspectionState,
+    inspectionId: String = "",
     modifier: Modifier = Modifier,
 ) {
     when (state) {
         is InspectionState.Loading -> InspectionLoadingScreen(state = state, modifier = modifier)
-        is InspectionState.Editing -> InspectionEditingScreen(state = state, modifier = modifier)
+        is InspectionState.Editing -> InspectionEditingScreen(
+            state = state,
+            inspectionId = inspectionId,
+            modifier = modifier,
+        )
         is InspectionState.Reviewing -> InspectionReviewingScreen(state = state, modifier = modifier)
         is InspectionState.ValidationFailed -> InspectionValidationFailedScreen(state = state, modifier = modifier)
         is InspectionState.Completed -> InspectionCompletedScreen(state = state, modifier = modifier)
@@ -70,9 +75,11 @@ private fun InspectionLoadingScreen(
 @Composable
 private fun InspectionEditingScreen(
     state: InspectionState.Editing,
+    inspectionId: String,
     modifier: Modifier = Modifier,
 ) {
     val section = state.currentSection
+    val evidenceCaptureHandler = LocalInspectionEvidenceCaptureHandler.current
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -117,8 +124,40 @@ private fun InspectionEditingScreen(
                         onNoteChange = { note ->
                             state.eventSink(InspectionEvent.NoteChanged(item.id, note))
                         },
-                        onEvidenceAdd = { ref ->
-                            state.eventSink(InspectionEvent.EvidenceAdded(item.id, ref))
+                        onEvidenceCapture = { source ->
+                            state.eventSink(InspectionEvent.EvidenceCaptureRequested(item.id))
+                            if (inspectionId.isBlank()) {
+                                state.eventSink(
+                                    InspectionEvent.EvidenceCaptureFailed(
+                                        itemId = item.id,
+                                        message = "Couldn't identify inspection.",
+                                    ),
+                                )
+                            } else {
+                                evidenceCaptureHandler.requestCapture(
+                                    InspectionEvidenceCaptureRequest(
+                                        inspectionId = inspectionId,
+                                        itemId = item.id,
+                                        source = source,
+                                        onCaptured = { reference ->
+                                            state.eventSink(
+                                                InspectionEvent.EvidenceCaptured(
+                                                    itemId = item.id,
+                                                    reference = reference,
+                                                ),
+                                            )
+                                        },
+                                        onFailure = { message ->
+                                            state.eventSink(
+                                                InspectionEvent.EvidenceCaptureFailed(
+                                                    itemId = item.id,
+                                                    message = message,
+                                                ),
+                                            )
+                                        },
+                                    ),
+                                )
+                            }
                         },
                     )
                 }
@@ -390,7 +429,7 @@ private fun ChecklistItemRow(
     item: ChecklistItemUi,
     onAnswerChange: (ChecklistAnswerUi) -> Unit,
     onNoteChange: (String) -> Unit,
-    onEvidenceAdd: (String) -> Unit,
+    onEvidenceCapture: (InspectionEvidenceCaptureSource) -> Unit,
 ) {
     var showEvidencePicker by remember { mutableStateOf(false) }
 
@@ -456,7 +495,6 @@ private fun ChecklistItemRow(
         }
     }
 
-    // Evidence picker uses unique demo references until a real evidence store is wired.
     if (showEvidencePicker) {
         ModalBottomSheet(onDismissRequest = { showEvidencePicker = false }) {
             Column(
@@ -471,21 +509,21 @@ private fun ChecklistItemRow(
                 )
                 TextButton(
                     onClick = {
-                        onEvidenceAdd("photo-${System.currentTimeMillis()}")
+                        onEvidenceCapture(InspectionEvidenceCaptureSource.Camera)
                         showEvidencePicker = false
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("📷  Take Photo (demo)")
+                    Text("Take photo")
                 }
                 TextButton(
                     onClick = {
-                        onEvidenceAdd("gallery-${System.currentTimeMillis()}")
+                        onEvidenceCapture(InspectionEvidenceCaptureSource.Gallery)
                         showEvidencePicker = false
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("🖼  Choose from Gallery (demo)")
+                    Text("Choose from gallery")
                 }
                 TextButton(
                     onClick = { showEvidencePicker = false },

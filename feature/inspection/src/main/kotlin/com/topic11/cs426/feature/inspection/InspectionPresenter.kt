@@ -141,10 +141,27 @@ internal class InspectionPresenter(
                         }
                     }
 
-                    is InspectionEvent.EvidenceAdded -> {
-                        if (event.evidenceRef.isNotBlank()) {
-                            draftSession = session.withEvidence(event.itemId, event.evidenceRef)
+                    is InspectionEvent.EvidenceCaptureRequested -> {
+                        saveError = null
+                    }
+
+                    is InspectionEvent.EvidenceCaptured -> {
+                        if (
+                            event.reference.inspectionId == session.id &&
+                            event.reference.checklistItemId.value == event.itemId
+                        ) {
+                            draftSession = session.withEvidence(
+                                event.itemId,
+                                event.reference.id.value,
+                            )
+                            saveError = null
+                        } else {
+                            saveError = "Couldn't attach evidence to this item."
                         }
+                    }
+
+                    is InspectionEvent.EvidenceCaptureFailed -> {
+                        saveError = event.message
                     }
 
                     InspectionEvent.PreviousSection -> {

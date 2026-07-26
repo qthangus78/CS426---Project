@@ -70,7 +70,7 @@ Dashboard currently renders:
 - loading, empty, content, and filtered-empty states;
 - a local About FieldFlow dialog.
 
-Inspection currently renders an editable workflow with section navigation, answer and note updates, evidence references, draft saving, review, validation errors, and completion feedback. The current app binding persists this workflow in deterministic demo repositories.
+Inspection currently renders an editable workflow with section navigation, answer and note updates, evidence references, draft saving, review, validation errors, and completion feedback. The current app binding persists this workflow through Room-backed repositories.
 
 Reports renders an honest placeholder for report capability. It shows no fake reports or export progress. The Domain report contract exists, but report history and PDF/JSON exporter adapters are not implemented.
 

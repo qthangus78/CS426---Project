@@ -12,4 +12,4 @@ It currently contains:
 
 The schema source and mapping rules are documented in [docs/architecture/DATA_SCHEMA.md](../../docs/architecture/DATA_SCHEMA.md). Domain types and Room entities must remain separate; `:data` owns mapping between them.
 
-The app composition root does not yet open or wire this database at runtime. Do not add a feature dependency on this module to work around that pending integration.
+The app composition root opens this database at runtime and keeps the Room dependency at the Android boundary. Do not add a feature dependency on this module to work around integration needs.

@@ -8,12 +8,21 @@ import com.topic11.cs426.core.navigation.InspectionScreen
 import com.topic11.cs426.core.navigation.IssuesScreen
 import com.topic11.cs426.core.navigation.ReportsScreen
 import com.topic11.cs426.core.navigation.TemplatesScreen
+import com.topic11.cs426.core.testing.FakeAssetRepository
+import com.topic11.cs426.core.testing.FakeTemplateRepository
 import com.topic11.cs426.core.testing.InspectionTestFixtures
 import com.topic11.cs426.core.testing.RecordingInspectionRepository
+import com.topic11.cs426.domain.model.Asset
+import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
+import com.topic11.cs426.domain.model.TemplateId
+import com.topic11.cs426.domain.usecase.ObserveAssetsUseCase
 import com.topic11.cs426.domain.usecase.ObserveInspectionSummariesUseCase
+import com.topic11.cs426.domain.usecase.ObserveTemplatesUseCase
+import com.topic11.cs426.domain.usecase.StartInspectionUseCase
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -28,6 +37,9 @@ class DashboardPresenterTest {
         val navigator = FakeNavigator(DashboardScreen)
         val presenter = DashboardPresenter(
             observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
+            observeAssets = ObserveAssetsUseCase(FakeAssetRepository()),
+            observeTemplates = ObserveTemplatesUseCase(fakeTemplateRepository()),
+            startInspection = StartInspectionUseCase(repository, fakeTemplateRepository()),
             navigator = navigator,
         )
 
@@ -53,6 +65,8 @@ class DashboardPresenterTest {
             assertEquals("Laboratory A2 Safety Check", content.filteredInspections[2].title)
             assertEquals("Sync pending", content.filteredInspections[2].statusLabel)
             assertEquals(1.0f, content.filteredInspections[2].progressFraction, 0.0f)
+            assertEquals(listOf(InspectionTestFixtures.asset1Id), content.startInspection.assets.map { it.id })
+            assertEquals(listOf(InspectionTestFixtures.templateId), content.startInspection.templates.map { it.id })
             assertNotNull(content.eventSink)
         }
     }
@@ -63,6 +77,9 @@ class DashboardPresenterTest {
         val navigator = FakeNavigator(DashboardScreen)
         val presenter = DashboardPresenter(
             observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
+            observeAssets = ObserveAssetsUseCase(FakeAssetRepository()),
+            observeTemplates = ObserveTemplatesUseCase(fakeTemplateRepository()),
+            startInspection = StartInspectionUseCase(repository, fakeTemplateRepository()),
             navigator = navigator,
         )
 
@@ -77,6 +94,7 @@ class DashboardPresenterTest {
             assertEquals(0, empty.overview.syncPendingInspections)
             assertEquals(InspectionFilterUi.ALL, empty.selectedFilter)
             assertEquals(false, empty.isAboutVisible)
+            assertEquals(false, empty.startInspection.isVisible)
             assertNotNull(empty.eventSink)
         }
     }
@@ -258,6 +276,63 @@ class DashboardPresenterTest {
     }
 
     @Test
+    fun `start inspection action opens selector with repository options`() = runTest {
+        val presenter = presenter()
+
+        presenter.test {
+            awaitItem()
+            val content = awaitItem() as DashboardState.Content
+
+            content.eventSink(DashboardEvent.StartInspectionSelected)
+
+            val selecting = awaitItem() as DashboardState.Content
+            assertEquals(true, selecting.startInspection.isVisible)
+            assertEquals(InspectionTestFixtures.asset1Id, selecting.startInspection.selectedAssetId)
+            assertEquals(InspectionTestFixtures.templateId, selecting.startInspection.selectedTemplateId)
+            assertEquals(true, selecting.startInspection.canConfirm)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `start inspection confirmed creates inspection from exposed template revision and navigates`() = runTest {
+        val navigator = FakeNavigator(DashboardScreen)
+        val inspectionRepository = RecordingInspectionRepository()
+        val revisionId = TemplateId("sample-template-v2")
+        val asset = Asset(
+            id = AssetId("asset-projector-p204"),
+            name = "Projector P-204",
+        )
+        val templateRepository = fakeTemplateRepository(revisionId)
+        val presenter = presenter(
+            inspectionRepository = inspectionRepository,
+            assetRepository = FakeAssetRepository(initialAssets = listOf(asset)),
+            templateRepository = templateRepository,
+            navigator = navigator,
+        )
+
+        presenter.test {
+            awaitItem()
+            val content = awaitItem() as DashboardState.Content
+
+            content.eventSink(DashboardEvent.StartInspectionSelected)
+            val selecting = awaitItem() as DashboardState.Content
+            selecting.eventSink(DashboardEvent.StartInspectionConfirmed)
+            advanceUntilIdle()
+
+            assertEquals(InspectionScreen("inspection-1"), navigator.awaitNextScreen())
+            assertEquals(1, inspectionRepository.createInspectionCalls)
+            assertEquals(1, inspectionRepository.saveDraftCalls)
+            val savedSession = inspectionRepository.savedSessions.single()
+            assertEquals(asset.id, savedSession.assetId)
+            assertEquals(asset.name, savedSession.assetName)
+            assertEquals(revisionId, savedSession.templateId)
+            assertEquals(InspectionStatus.IN_PROGRESS, savedSession.status)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `quick access actions navigate to placeholder screens`() = runTest {
         assertQuickAccessNavigation(DashboardEvent.AssetsSelected, AssetsScreen)
         assertQuickAccessNavigation(DashboardEvent.TemplatesSelected, TemplatesScreen)
@@ -304,13 +379,27 @@ class DashboardPresenterTest {
 
     private fun presenter(
         initialSummaries: List<InspectionSummary> = InspectionTestFixtures.inspectionSummaries,
+        inspectionRepository: RecordingInspectionRepository = RecordingInspectionRepository(
+            initialSummaries = initialSummaries,
+        ),
+        assetRepository: FakeAssetRepository = FakeAssetRepository(),
+        templateRepository: FakeTemplateRepository = fakeTemplateRepository(),
         navigator: FakeNavigator = FakeNavigator(DashboardScreen),
     ): DashboardPresenter {
-        val repository = RecordingInspectionRepository(initialSummaries = initialSummaries)
         return DashboardPresenter(
-            observeInspectionSummaries = ObserveInspectionSummariesUseCase(repository),
+            observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository),
+            observeAssets = ObserveAssetsUseCase(assetRepository),
+            observeTemplates = ObserveTemplatesUseCase(templateRepository),
+            startInspection = StartInspectionUseCase(inspectionRepository, templateRepository),
             navigator = navigator,
         )
+    }
+
+    private fun fakeTemplateRepository(
+        templateId: TemplateId = InspectionTestFixtures.templateId,
+    ): FakeTemplateRepository {
+        val template = InspectionTestFixtures.sampleTemplate.copy(id = templateId)
+        return FakeTemplateRepository(mapOf(templateId to template))
     }
 
     private fun inspectionSummary(

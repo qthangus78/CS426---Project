@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,14 @@ internal fun DashboardQuickActions(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         DashboardSectionHeader(title = "Quick actions")
+        Button(
+            onClick = { eventSink(DashboardEvent.StartInspectionSelected) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("dashboard-start-inspection"),
+        ) {
+            Text("Start inspection")
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

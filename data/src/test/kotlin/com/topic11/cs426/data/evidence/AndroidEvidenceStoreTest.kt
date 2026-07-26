@@ -2,7 +2,9 @@ package com.topic11.cs426.data.evidence
 
 import android.net.Uri
 import com.topic11.cs426.core.database.entity.EvidenceEntity
+import com.topic11.cs426.domain.model.ChecklistItemId
 import com.topic11.cs426.domain.model.EvidenceId
+import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.repository.EvidenceSource
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.test.runTest
@@ -87,7 +89,12 @@ class AndroidEvidenceStoreTest {
         )
 
         assertEquals(EvidenceId("evidence-domain"), reference.id)
+        assertEquals(InspectionId("inspection-lab-i44"), reference.inspectionId)
+        assertEquals(ChecklistItemId("item-extinguisher"), reference.checklistItemId)
         assertEquals("fieldflow-evidence://managed/evidence-domain", reference.uriString)
+        assertEquals("image/jpeg", reference.mimeType)
+        assertEquals("inspection-lab-i44", metadata?.inspectionId)
+        assertEquals("item-extinguisher", metadata?.checklistItemId)
         assertTrue(fileStorage.exists(requireNotNull(metadata).storageKey))
 
         store.delete(reference)

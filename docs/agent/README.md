@@ -20,7 +20,7 @@ The kit keeps agent work scoped, reviewable, and consistent with the FieldFlow a
 - Clarifies that `AGENTS.md` should stay concise and durable.
 - Adds a source policy for official Codex, Android, Circuit, GitHub, and OpenAI references.
 - Treats the checked-in source as the current state and proposal documents as future-product context.
-- Records that Room/Data foundations are implemented but not wired by the current app composition root.
+- Records that Room/Data foundations are implemented and that runtime wiring belongs in the app composition root.
 - Makes sandbox, approval, and docs-only verification expectations explicit.
 
 ## Recommended Agent Roles

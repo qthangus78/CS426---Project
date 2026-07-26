@@ -49,6 +49,7 @@ class InspectionUiFactory : Ui.Factory {
             is InspectionScreen -> ui<InspectionState> { state, modifier ->
                 InspectionUi(
                     state = state,
+                    inspectionId = screen.inspectionId,
                     modifier = modifier,
                 )
             }
