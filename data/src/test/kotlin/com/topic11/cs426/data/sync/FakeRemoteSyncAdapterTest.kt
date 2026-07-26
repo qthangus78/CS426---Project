@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.topic11.cs426.core.database.FieldFlowDatabase
-import com.topic11.cs426.core.database.entity.PendingSyncEntity
+import com.topic11.cs426.data.RoomInspectionRepository
+import com.topic11.cs426.data.seed.FieldFlowSampleDataSeeder
+import com.topic11.cs426.domain.model.InspectionId
+import com.topic11.cs426.domain.model.InspectionStatus
 import java.util.ArrayDeque
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -35,7 +38,7 @@ class FakeRemoteSyncAdapterTest {
 
     @Test
     fun `success records deterministic delay and durable synced state`() = runTest {
-        database.syncDao().enqueueCommand(command())
+        FieldFlowSampleDataSeeder(database).seedIfEmpty()
         val observedDelays = mutableListOf<Long>()
         val adapter = adapter(
             scenario = AttemptBasedFakeSyncScenario(
@@ -50,11 +53,18 @@ class FakeRemoteSyncAdapterTest {
         assertEquals(FakeSyncResult.Synced, result)
         assertEquals(listOf(250L), observedDelays)
         assertCommand(state = "SYNCED", attempts = 1, errorCode = null)
+        assertInspectionSyncStatus("SYNCED")
+        assertEquals(
+            InspectionStatus.COMPLETED,
+            RoomInspectionRepository(database)
+                .getInspection(InspectionId(INSPECTION_ID))
+                ?.status,
+        )
     }
 
     @Test
     fun `configured failure can be retried with configured success`() = runTest {
-        database.syncDao().enqueueCommand(command())
+        FieldFlowSampleDataSeeder(database).seedIfEmpty()
         val adapter = adapter(
             scenario = AttemptBasedFakeSyncScenario(
                 outcomesByAttempt = mapOf(
@@ -67,17 +77,25 @@ class FakeRemoteSyncAdapterTest {
 
         assertEquals(FakeSyncResult.Failed("OFFLINE"), adapter.sync(COMMAND_ID))
         assertCommand(state = "FAILED", attempts = 1, errorCode = "OFFLINE")
+        assertInspectionSyncStatus("FAILED")
+        assertEquals(
+            InspectionStatus.SYNC_PENDING,
+            RoomInspectionRepository(database)
+                .getInspection(InspectionId(INSPECTION_ID))
+                ?.status,
+        )
 
         assertEquals(1, database.syncDao().retryFailed(COMMAND_ID, 2_300L))
         assertEquals(FakeSyncResult.Synced, adapter.sync(COMMAND_ID))
         assertCommand(state = "SYNCED", attempts = 2, errorCode = null)
+        assertInspectionSyncStatus("SYNCED")
     }
 
     @Test
     fun `completed command is not executed again`() = runTest {
-        database.syncDao().enqueueCommand(command())
-        database.syncDao().markSyncing(COMMAND_ID, 2_100L)
-        database.syncDao().markSynced(COMMAND_ID, 2_200L)
+        FieldFlowSampleDataSeeder(database).seedIfEmpty()
+        database.syncDao().markSyncingWithInspection(COMMAND_ID, 2_100L)
+        database.syncDao().markSyncedWithInspection(COMMAND_ID, 2_200L)
         var scenarioCalls = 0
         val adapter = adapter(
             scenario = FakeSyncScenario {
@@ -92,6 +110,7 @@ class FakeRemoteSyncAdapterTest {
         assertEquals(FakeSyncResult.NotEligible, result)
         assertEquals(0, scenarioCalls)
         assertCommand(state = "SYNCED", attempts = 1, errorCode = null)
+        assertInspectionSyncStatus("SYNCED")
     }
 
     private fun adapter(
@@ -116,21 +135,15 @@ class FakeRemoteSyncAdapterTest {
         assertEquals(errorCode, command.lastErrorCode)
     }
 
-    private fun command() = PendingSyncEntity(
-        id = COMMAND_ID,
-        aggregateType = "INSPECTION",
-        aggregateId = "inspection-lab-i44",
-        operation = "COMPLETE",
-        payloadVersion = 1,
-        payloadJson = """{"inspectionId":"inspection-lab-i44"}""",
-        state = "PENDING",
-        attemptCount = 0,
-        lastErrorCode = null,
-        createdAtMillis = 2_000L,
-        updatedAtMillis = 2_000L,
-    )
+    private suspend fun assertInspectionSyncStatus(expected: String) {
+        assertEquals(
+            expected,
+            database.inspectionDao().getInspection(INSPECTION_ID)?.syncStatus,
+        )
+    }
 
     private companion object {
-        const val COMMAND_ID = "sync-inspection-complete"
+        const val COMMAND_ID = "sample-sync-lab-a2"
+        const val INSPECTION_ID = "laboratory-a2-safety-check"
     }
 }

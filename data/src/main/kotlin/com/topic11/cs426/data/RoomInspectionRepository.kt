@@ -1,17 +1,13 @@
 package com.topic11.cs426.data
 
-import com.topic11.cs426.core.database.dao.InspectionDao
-import com.topic11.cs426.core.database.entity.EvidenceEntity
+import com.topic11.cs426.core.database.FieldFlowDatabase
 import com.topic11.cs426.core.database.entity.InspectionEntity
-import com.topic11.cs426.core.database.entity.MaintenanceIssueEntity
 import com.topic11.cs426.core.database.entity.PendingSyncEntity
 import com.topic11.cs426.data.mapping.toDomain
 import com.topic11.cs426.data.mapping.toEntity
 import com.topic11.cs426.domain.model.CompletedInspection
-import com.topic11.cs426.domain.model.InspectionAnswer
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionSession
-import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.InspectionSummary
 import com.topic11.cs426.domain.repository.InspectionRepository
 import java.util.UUID
@@ -24,8 +20,12 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 class RoomInspectionRepository(
-    private val inspectionDao: InspectionDao,
+    private val database: FieldFlowDatabase,
+    private val inspectionIdFactory: () -> String = { "inspection-${UUID.randomUUID()}" },
 ) : InspectionRepository {
+    private val inspectionDao = database.inspectionDao()
+    private val catalogDao = database.catalogDao()
+
     override fun observeInspectionSummaries(): Flow<List<InspectionSummary>> {
         return inspectionDao.observeInspectionSummaries()
             .map { records -> records.map { it.toDomain() } }
@@ -64,16 +64,23 @@ class RoomInspectionRepository(
         templateId: String,
         startedAtMillis: Long,
     ): InspectionId {
-        val templateRevisionId = inspectionDao.getLatestTemplateRevisionId(templateId)
-            ?: error("Template $templateId not found")
-        val inspectionId = InspectionId("inspection-${UUID.randomUUID()}")
+        val asset = requireNotNull(catalogDao.getAsset(assetId)) {
+            "Asset does not exist: $assetId"
+        }
+        require(asset.name == assetName) {
+            "Asset name does not match persisted asset $assetId"
+        }
+        val template = requireNotNull(catalogDao.getTemplateAggregate(templateId)) {
+            "Template does not exist: $templateId"
+        }
+        val id = InspectionId(inspectionIdFactory())
         inspectionDao.upsertInspection(
             InspectionEntity(
-                id = inspectionId.value,
-                assetId = assetId,
-                templateRevisionId = templateRevisionId,
-                lifecycleStatus = LIFECYCLE_NOT_STARTED,
-                syncStatus = SYNC_NOT_REQUIRED,
+                id = id.value,
+                assetId = asset.id,
+                templateRevisionId = template.template.revisionId,
+                lifecycleStatus = "NOT_STARTED",
+                syncStatus = "NOT_REQUIRED",
                 currentSectionId = null,
                 startedAtMillis = startedAtMillis,
                 updatedAtMillis = startedAtMillis,
@@ -82,125 +89,86 @@ class RoomInspectionRepository(
                 totalWeight = null,
             ),
         )
-        return inspectionId
+        return id
     }
 
     override suspend fun saveDraft(session: InspectionSession) {
-        val existingInspection = inspectionDao.getInspection(session.id.value)
-        val templateRevisionId = existingInspection?.templateRevisionId
-            ?: inspectionDao.getLatestTemplateRevisionId(session.templateId.value)
-            ?: error("Template ${session.templateId.value} not found")
-        val existingEvidence = inspectionDao.getEvidence(session.id.value).associateBy(EvidenceEntity::id)
+        val existing = requireNotNull(inspectionDao.getInspection(session.id.value)) {
+            "Inspection does not exist: ${session.id.value}"
+        }
+        require(existing.assetId == session.assetId.value) {
+            "Cannot move an inspection to a different asset"
+        }
+        require(existing.templateRevisionId == session.templateId.value) {
+            "Cannot move an inspection to a different template revision"
+        }
+        val answerTypes = answerTypesFor(existing.templateRevisionId)
+        val existingEvidence = inspectionDao.getEvidence(session.id.value)
 
         inspectionDao.saveDraft(
-            inspection = session.toEntity(templateRevisionId),
-            answers = session.answers.map(InspectionAnswer::toEntity),
-            evidence = session.answers.toEvidenceEntities(existingEvidence),
+            inspection = session.toEntity(existing),
+            answers = session.answers.map { answer ->
+                answer.toEntity(
+                    answerType = requireNotNull(answerTypes[answer.checklistItemId.value]) {
+                        "Checklist item is not part of the inspection template: " +
+                            answer.checklistItemId.value
+                    },
+                )
+            },
+            evidence = existingEvidence,
         )
     }
 
     override suspend fun complete(completed: CompletedInspection) {
-        val existingInspection = inspectionDao.getInspection(completed.id.value)
-            ?: error("Inspection ${completed.id.value} not found")
-        val existingEvidence = inspectionDao.getEvidence(completed.id.value).associateBy(EvidenceEntity::id)
-        val completedInspection = existingInspection.copy(
-            lifecycleStatus = LIFECYCLE_COMPLETED,
-            syncStatus = SYNC_PENDING,
+        val existing = requireNotNull(inspectionDao.getInspection(completed.id.value)) {
+            "Inspection does not exist: ${completed.id.value}"
+        }
+        val answerTypes = answerTypesFor(existing.templateRevisionId)
+        val completedEntity = existing.copy(
+            lifecycleStatus = "COMPLETED",
+            syncStatus = "PENDING",
             updatedAtMillis = completed.completedAtMillis,
             completedAtMillis = completed.completedAtMillis,
             earnedWeight = completed.score.earnedWeight.toDouble(),
             totalWeight = completed.score.totalWeight.toDouble(),
         )
+        val pendingSync = PendingSyncEntity(
+            id = "sync-complete-${completed.id.value}",
+            aggregateType = "INSPECTION",
+            aggregateId = completed.id.value,
+            operation = "COMPLETE",
+            payloadVersion = 1,
+            payloadJson = """{"inspectionId":"${completed.id.value}"}""",
+            state = "PENDING",
+            attemptCount = 0,
+            lastErrorCode = null,
+            createdAtMillis = completed.completedAtMillis,
+            updatedAtMillis = completed.completedAtMillis,
+        )
 
         inspectionDao.completeInspection(
-            inspection = completedInspection,
-            answers = completed.answers.map(InspectionAnswer::toEntity),
-            evidence = completed.answers.toEvidenceEntities(existingEvidence),
-            issues = completed.issues.map { issue ->
-                MaintenanceIssueEntity(
-                    id = issue.id.value,
-                    inspectionId = issue.inspectionId.value,
-                    assetId = issue.assetId.value,
-                    checklistItemId = issue.checklistItemId?.value,
-                    severity = issue.severity.name,
-                    title = issue.title,
-                    description = issue.description.orEmpty(),
-                    status = issue.status.name,
-                    createdAtMillis = issue.createdAtMillis,
-                    updatedAtMillis = completed.completedAtMillis,
+            inspection = completedEntity,
+            answers = completed.answers.map { answer ->
+                answer.toEntity(
+                    answerType = requireNotNull(answerTypes[answer.checklistItemId.value]) {
+                        "Checklist item is not part of the inspection template: " +
+                            answer.checklistItemId.value
+                    },
                 )
             },
-            pendingSync = listOf(
-                PendingSyncEntity(
-                    id = "inspection-${completed.id.value}-complete-v1",
-                    aggregateType = "INSPECTION",
-                    aggregateId = completed.id.value,
-                    operation = "COMPLETE",
-                    payloadVersion = 1,
-                    payloadJson = "{\"inspectionId\":\"${completed.id.value}\"}",
-                    state = SYNC_PENDING,
-                    attemptCount = 0,
-                    lastErrorCode = null,
-                    createdAtMillis = completed.completedAtMillis,
-                    updatedAtMillis = completed.completedAtMillis,
-                ),
-            ),
+            evidence = inspectionDao.getEvidence(completed.id.value),
+            issues = completed.issues.map { it.toEntity(completed.completedAtMillis) },
+            pendingSync = listOf(pendingSync),
+            nextInspectionDueAtMillis = completed.nextInspectionDueAtMillis,
         )
     }
-}
 
-private fun InspectionSession.toEntity(templateRevisionId: String): InspectionEntity {
-    val persistenceStatus = status.toPersistenceStatus()
-    return InspectionEntity(
-        id = id.value,
-        assetId = assetId.value,
-        templateRevisionId = templateRevisionId,
-        lifecycleStatus = persistenceStatus.lifecycleStatus,
-        syncStatus = persistenceStatus.syncStatus,
-        currentSectionId = currentSectionId?.value,
-        startedAtMillis = startedAtMillis,
-        updatedAtMillis = updatedAtMillis,
-        completedAtMillis = completedAtMillis,
-        earnedWeight = score?.earnedWeight?.toDouble(),
-        totalWeight = score?.totalWeight?.toDouble(),
-    )
-}
-
-private fun List<InspectionAnswer>.toEvidenceEntities(
-    existingEvidence: Map<String, EvidenceEntity>,
-): List<EvidenceEntity> {
-    return flatMap { answer ->
-        answer.evidenceIds.map { evidenceId ->
-            existingEvidence[evidenceId.value] ?: EvidenceEntity(
-                id = evidenceId.value,
-                inspectionId = answer.inspectionId.value,
-                checklistItemId = answer.checklistItemId.value,
-                storageKey = evidenceId.value,
-                mimeType = null,
-                createdAtMillis = answer.updatedAtMillis,
-            )
+    private suspend fun answerTypesFor(templateRevisionId: String): Map<String, String> {
+        val template = requireNotNull(catalogDao.getTemplateAggregate(templateRevisionId)) {
+            "Template revision no longer exists: $templateRevisionId"
         }
-    }.distinctBy(EvidenceEntity::id)
+        return template.sections
+            .flatMap { it.items }
+            .associate { it.id to it.answerType }
+    }
 }
-
-private fun InspectionStatus.toPersistenceStatus(): PersistenceStatus = when (this) {
-    InspectionStatus.NOT_STARTED -> PersistenceStatus(LIFECYCLE_NOT_STARTED, SYNC_NOT_REQUIRED)
-    InspectionStatus.IN_PROGRESS -> PersistenceStatus(LIFECYCLE_IN_PROGRESS, SYNC_NOT_REQUIRED)
-    InspectionStatus.REVIEWING -> PersistenceStatus(LIFECYCLE_REVIEWING, SYNC_NOT_REQUIRED)
-    InspectionStatus.COMPLETED -> PersistenceStatus(LIFECYCLE_COMPLETED, SYNC_SYNCED)
-    InspectionStatus.SYNC_PENDING -> PersistenceStatus(LIFECYCLE_COMPLETED, SYNC_PENDING)
-}
-
-private data class PersistenceStatus(
-    val lifecycleStatus: String,
-    val syncStatus: String,
-)
-
-private const val LIFECYCLE_NOT_STARTED = "NOT_STARTED"
-private const val LIFECYCLE_IN_PROGRESS = "IN_PROGRESS"
-private const val LIFECYCLE_REVIEWING = "REVIEWING"
-private const val LIFECYCLE_COMPLETED = "COMPLETED"
-
-private const val SYNC_NOT_REQUIRED = "NOT_REQUIRED"
-private const val SYNC_PENDING = "PENDING"
-private const val SYNC_SYNCED = "SYNCED"

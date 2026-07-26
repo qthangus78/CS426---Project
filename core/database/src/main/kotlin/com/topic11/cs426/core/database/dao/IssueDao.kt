@@ -20,6 +20,9 @@ interface IssueDao {
     )
     fun observeIssuesForInspection(inspectionId: String): Flow<List<MaintenanceIssueEntity>>
 
+    @Query("SELECT * FROM maintenance_issues WHERE id = :issueId")
+    suspend fun getIssue(issueId: String): MaintenanceIssueEntity?
+
     @Upsert
     suspend fun upsertIssue(issue: MaintenanceIssueEntity)
 }

@@ -6,32 +6,54 @@ import com.topic11.cs426.domain.model.AssetSummary
 import com.topic11.cs426.domain.repository.AssetRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
-class FakeAssetRepository : AssetRepository {
-    private val assets = mutableMapOf<AssetId, Asset>()
+class FakeAssetRepository(
+    initialAssets: List<Asset> = listOf(
+        Asset(
+            id = InspectionTestFixtures.asset1Id,
+            name = "Computer Lab I.44",
+        ),
+    ),
+) : AssetRepository {
+    private val assets = MutableStateFlow(initialAssets)
 
-    override fun observeAssets(): Flow<List<AssetSummary>> {
-        return MutableStateFlow(
-            assets.map { (id, a) ->
+    val savedAssets: List<Asset>
+        get() = assets.value
+
+    override fun observeAssets(): Flow<List<AssetSummary>> =
+        assets.map { values ->
+            values.map { asset ->
                 AssetSummary(
-                    id = id,
-                    name = a.name,
-                    code = a.code,
-                    nextInspectionDueAtMillis = a.nextInspectionDueAtMillis,
+                    id = asset.id,
+                    name = asset.name,
+                    code = asset.code,
+                    locationName = "",
+                    nextInspectionDueAtMillis = asset.nextInspectionDueAtMillis,
                 )
-            },
-        )
-    }
+            }
+        }
 
-    override suspend fun getAsset(id: AssetId): Asset? {
-        return assets[id]
-    }
+    override suspend fun getAsset(id: AssetId): Asset? =
+        assets.value.firstOrNull { it.id == id }
 
     override suspend fun saveAsset(asset: Asset) {
-        assets[asset.id] = asset
+        check(assets.value.any { it.id == asset.id }) {
+            "Asset does not exist: ${asset.id.value}"
+        }
+        assets.update { values ->
+            values.map { current -> if (current.id == asset.id) asset else current }
+        }
     }
 
     fun addAsset(asset: Asset) {
-        assets[asset.id] = asset
+        assets.update { values ->
+            if (values.any { it.id == asset.id }) {
+                values.map { current -> if (current.id == asset.id) asset else current }
+            } else {
+                values + asset
+            }
+        }
     }
 }

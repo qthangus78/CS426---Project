@@ -93,9 +93,14 @@ class FieldFlowDatabaseTest {
             evidence = listOf(evidence()),
             issues = listOf(issue),
             pendingSync = listOf(command),
+            nextInspectionDueAtMillis = 86_400_000L,
         )
 
         assertEquals(completed, database.inspectionDao().getInspection(INSPECTION_ID))
+        assertEquals(
+            86_400_000L,
+            database.catalogDao().getAsset(ASSET_ID)?.nextInspectionDueAtMillis,
+        )
         assertEquals(
             listOf(issue),
             database.issueDao().observeIssuesForInspection(INSPECTION_ID).first(),

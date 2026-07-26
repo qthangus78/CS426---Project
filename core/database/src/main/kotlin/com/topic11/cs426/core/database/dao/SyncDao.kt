@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.topic11.cs426.core.database.entity.PendingSyncEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -84,4 +85,75 @@ interface SyncDao {
         id: String,
         updatedAtMillis: Long,
     ): Int
+
+    @Query(
+        """
+        UPDATE inspections
+        SET sync_status = :syncStatus,
+            updated_at_ms = :updatedAtMillis
+        WHERE id = :inspectionId
+        """,
+    )
+    suspend fun updateInspectionSyncStatus(
+        inspectionId: String,
+        syncStatus: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Transaction
+    suspend fun markSyncingWithInspection(
+        id: String,
+        updatedAtMillis: Long,
+    ): Int {
+        val command = getCommand(id) ?: return 0
+        val updated = markSyncing(id, updatedAtMillis)
+        if (updated == 1) {
+            updateInspectionStatusFor(command, "SYNCING", updatedAtMillis)
+        }
+        return updated
+    }
+
+    @Transaction
+    suspend fun markSyncedWithInspection(
+        id: String,
+        updatedAtMillis: Long,
+    ): Int {
+        val command = getCommand(id) ?: return 0
+        val updated = markSynced(id, updatedAtMillis)
+        if (updated == 1) {
+            updateInspectionStatusFor(command, "SYNCED", updatedAtMillis)
+        }
+        return updated
+    }
+
+    @Transaction
+    suspend fun markFailedWithInspection(
+        id: String,
+        errorCode: String,
+        updatedAtMillis: Long,
+    ): Int {
+        val command = getCommand(id) ?: return 0
+        val updated = markFailed(id, errorCode, updatedAtMillis)
+        if (updated == 1) {
+            updateInspectionStatusFor(command, "FAILED", updatedAtMillis)
+        }
+        return updated
+    }
+
+    private suspend fun updateInspectionStatusFor(
+        command: PendingSyncEntity,
+        syncStatus: String,
+        updatedAtMillis: Long,
+    ) {
+        if (command.aggregateType != "INSPECTION") return
+        check(
+            updateInspectionSyncStatus(
+                inspectionId = command.aggregateId,
+                syncStatus = syncStatus,
+                updatedAtMillis = updatedAtMillis,
+            ) == 1,
+        ) {
+            "Sync command references a missing inspection: ${command.aggregateId}"
+        }
+    }
 }

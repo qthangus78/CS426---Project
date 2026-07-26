@@ -25,7 +25,6 @@ import com.topic11.cs426.domain.model.InspectionTemplateSummary
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
 import com.topic11.cs426.domain.repository.InspectionRepository
-import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
@@ -56,7 +55,6 @@ class InspectionPresenterTest {
         navigator: FakeNavigator = FakeNavigator(DashboardScreen, screen),
         initialSession: InspectionSession = FakeInspectionRepository.createSession(),
         inspectionRepository: FakeInspectionRepository = FakeInspectionRepository(initialSession),
-        issueRepository: FakeIssueRepository = FakeIssueRepository(),
     ): InspectionPresenter {
         val fakeTemplateRepo = FakeTemplateRepository()
         val fakeAssetRepo = FakeAssetRepository().apply {
@@ -78,10 +76,9 @@ class InspectionPresenterTest {
                 inspectionRepository = inspectionRepository,
                 templateRepository = fakeTemplateRepo,
                 assetRepository = fakeAssetRepo,
-                issueRepository = issueRepository,
                 validateInspection = ValidateInspectionUseCase(),
                 calculateScore = CalculateInspectionScoreUseCase(),
-                createIssue = CreateMaintenanceIssueUseCase(issueRepository),
+                createIssue = CreateMaintenanceIssueUseCase(),
                 scheduleNext = ScheduleNextInspectionUseCase(),
             ),
         )
@@ -490,11 +487,8 @@ class InspectionPresenterTest {
     @Test
     fun `CompleteSelected persists completion and updates the shared dashboard summary`() = runTest {
         val inspectionRepository = FakeInspectionRepository.create()
-        val issueRepository = FakeIssueRepository()
-
         presenter(
             inspectionRepository = inspectionRepository,
-            issueRepository = issueRepository,
         ).test {
             var state = awaitEditing()
             FakeSession.sections.flatMap { it.items }.filter { it.required }.forEach { item ->
@@ -522,10 +516,10 @@ class InspectionPresenterTest {
             assertEquals(completed.score, persistedSession.score?.percent)
             assertTrue(completed.score != null)
             assertEquals(1, completed.issueCount)
-            assertEquals(1, issueRepository.createdIssues.size)
+            assertEquals(1, inspectionRepository.completedIssues.size)
             assertEquals(
                 ChecklistItemId("item-fire"),
-                issueRepository.createdIssues.single().checklistItemId,
+                inspectionRepository.completedIssues.single().checklistItemId,
             )
             assertEquals(InspectionStatus.COMPLETED, dashboardSummary.status)
             cancelAndIgnoreRemainingEvents()
@@ -842,6 +836,8 @@ private class FakeInspectionRepository(
     private val sessions = MutableStateFlow(session)
     var failSaves: Boolean = false
     var saveDraftAttempts: Int = 0
+    var completedIssues: List<com.topic11.cs426.domain.model.MaintenanceIssue> = emptyList()
+        private set
     val savedSession: InspectionSession
         get() = sessions.value
 
@@ -879,6 +875,7 @@ private class FakeInspectionRepository(
 
     override suspend fun complete(completed: CompletedInspection) {
         if (sessions.value.id == completed.id) {
+            completedIssues = completed.issues
             sessions.value = sessions.value.copy(
                 status = InspectionStatus.COMPLETED,
                 answers = completed.answers,
@@ -902,28 +899,6 @@ private class FakeInspectionRepository(
             startedAtMillis = 0L,
             updatedAtMillis = 0L,
         )
-    }
-}
-
-private class FakeIssueRepository : IssueRepository {
-    private val issues = MutableStateFlow<List<com.topic11.cs426.domain.model.MaintenanceIssue>>(emptyList())
-
-    val createdIssues: List<com.topic11.cs426.domain.model.MaintenanceIssue>
-        get() = issues.value
-
-    override fun observeIssues(): Flow<List<com.topic11.cs426.domain.model.MaintenanceIssue>> = issues
-
-    override suspend fun createIssue(
-        issue: com.topic11.cs426.domain.model.MaintenanceIssue,
-    ): com.topic11.cs426.domain.model.IssueId {
-        issues.value += issue
-        return issue.id
-    }
-
-    override suspend fun updateIssue(issue: com.topic11.cs426.domain.model.MaintenanceIssue) {
-        issues.value = issues.value.map { current ->
-            if (current.id == issue.id) issue else current
-        }
     }
 }
 

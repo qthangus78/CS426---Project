@@ -3,6 +3,7 @@ package com.topic11.cs426.data.mapping
 import com.topic11.cs426.core.database.dao.InspectionSessionRecord
 import com.topic11.cs426.core.database.entity.EvidenceEntity
 import com.topic11.cs426.core.database.entity.InspectionAnswerEntity
+import com.topic11.cs426.core.database.entity.InspectionEntity
 import com.topic11.cs426.domain.model.AssetId
 import com.topic11.cs426.domain.model.ChecklistAnswerValue
 import com.topic11.cs426.domain.model.ChecklistItemId
@@ -11,6 +12,7 @@ import com.topic11.cs426.domain.model.InspectionAnswer
 import com.topic11.cs426.domain.model.InspectionId
 import com.topic11.cs426.domain.model.InspectionScore
 import com.topic11.cs426.domain.model.InspectionSession
+import com.topic11.cs426.domain.model.InspectionStatus
 import com.topic11.cs426.domain.model.SectionId
 import com.topic11.cs426.domain.model.TemplateId
 
@@ -26,7 +28,7 @@ fun InspectionSessionRecord.toDomain(
 
     val evidenceIdsByItem = evidence
         .filter { it.checklistItemId != null }
-        .groupBy { it.checklistItemId!! }
+        .groupBy { requireNotNull(it.checklistItemId) }
         .mapValues { (_, records) -> records.map { EvidenceId(it.id) } }
 
     return InspectionSession(
@@ -35,7 +37,7 @@ fun InspectionSessionRecord.toDomain(
         assetName = assetName,
         templateId = TemplateId(templateId),
         templateName = templateName,
-        status = toDomainInspectionStatus(lifecycleStatus, syncStatus),
+        status = toDomainSessionStatus(lifecycleStatus, syncStatus),
         currentSectionId = currentSectionId?.let(::SectionId),
         answers = answers.map { answer ->
             answer.toDomain(evidenceIdsByItem[answer.checklistItemId].orEmpty())
@@ -47,27 +49,45 @@ fun InspectionSessionRecord.toDomain(
     )
 }
 
-fun InspectionAnswer.toEntity(): InspectionAnswerEntity {
-    val persistedValue = value.toPersistedValue()
-    return InspectionAnswerEntity(
+fun InspectionSession.toEntity(existing: InspectionEntity): InspectionEntity =
+    existing.copy(
+        lifecycleStatus = status.toLifecycleValue(),
+        syncStatus = status.toSyncValue(existing.syncStatus),
+        currentSectionId = currentSectionId?.value,
+        startedAtMillis = startedAtMillis,
+        updatedAtMillis = updatedAtMillis,
+        completedAtMillis = completedAtMillis,
+        earnedWeight = score?.earnedWeight?.toDouble(),
+        totalWeight = score?.totalWeight?.toDouble(),
+    )
+
+fun InspectionAnswer.toEntity(answerType: String): InspectionAnswerEntity =
+    InspectionAnswerEntity(
         inspectionId = inspectionId.value,
         checklistItemId = checklistItemId.value,
-        answerType = persistedValue.answerType,
-        valueText = persistedValue.valueText,
-        valueNumber = persistedValue.valueNumber,
-        valueBoolean = persistedValue.valueBoolean,
-        unit = persistedValue.unit,
+        answerType = answerType,
+        valueText = when (val answer = value) {
+            ChecklistAnswerValue.Pass -> "PASS"
+            ChecklistAnswerValue.Fail -> "FAIL"
+            ChecklistAnswerValue.NotApplicable -> "NOT_APPLICABLE"
+            is ChecklistAnswerValue.Text -> answer.value
+            is ChecklistAnswerValue.SingleChoice -> answer.optionId
+            else -> null
+        },
+        valueNumber = (value as? ChecklistAnswerValue.NumberValue)?.value,
+        valueBoolean = (value as? ChecklistAnswerValue.YesNo)?.value,
+        unit = (value as? ChecklistAnswerValue.NumberValue)?.unit,
         note = note,
         updatedAtMillis = updatedAtMillis,
     )
-}
 
 private fun InspectionSessionRecord.toDomainScore(): InspectionScore? {
     if (earnedWeight == null && totalWeight == null) return null
-    requireSessionValue(earnedWeight != null && totalWeight != null, "Incomplete score for $inspectionId")
+    val earned = earnedWeight ?: mappingError("Inspection $inspectionId has total weight without earned weight")
+    val total = totalWeight ?: mappingError("Inspection $inspectionId has earned weight without total weight")
     return InspectionScore(
-        earnedWeight = earnedWeight.toExactInt("earned weight"),
-        totalWeight = totalWeight.toExactInt("total weight"),
+        earnedWeight = earned.toExactInt("Earned weight", inspectionId),
+        totalWeight = total.toExactInt("Total weight", inspectionId),
     )
 }
 
@@ -85,77 +105,68 @@ private fun InspectionAnswerEntity.toDomain(evidenceIds: List<EvidenceId>): Insp
 }
 
 private fun InspectionAnswerEntity.toDomainValue(): ChecklistAnswerValue? {
-    if (valueText == null && valueNumber == null && valueBoolean == null) return null
-
     return when (answerType) {
         "PASS_FAIL_NA" -> when (valueText) {
+            null -> null
             "PASS" -> ChecklistAnswerValue.Pass
             "FAIL" -> ChecklistAnswerValue.Fail
             "NOT_APPLICABLE", "NA" -> ChecklistAnswerValue.NotApplicable
-            else -> invalidAnswer("Unknown pass/fail value: $valueText")
+            else -> mappingError("Unknown pass/fail value for $checklistItemId: $valueText")
         }
 
-        "YES_NO" -> ChecklistAnswerValue.YesNo(
-            valueBoolean ?: invalidAnswer("YES_NO answer is missing a boolean value"),
-        )
-
-        "TEXT" -> ChecklistAnswerValue.Text(
-            valueText ?: invalidAnswer("TEXT answer is missing text"),
-        )
-
-        "NUMBER" -> ChecklistAnswerValue.NumberValue(
-            value = valueNumber ?: invalidAnswer("NUMBER answer is missing a numeric value"),
-            unit = unit,
-        )
-
-        "SINGLE_CHOICE" -> ChecklistAnswerValue.SingleChoice(
-            valueText ?: invalidAnswer("SINGLE_CHOICE answer is missing an option"),
-        )
-
-        "UNANSWERED" -> null
-        else -> invalidAnswer("Unknown answer type: $answerType")
+        "YES_NO" -> valueBoolean?.let(ChecklistAnswerValue::YesNo)
+        "TEXT" -> valueText?.let(ChecklistAnswerValue::Text)
+        "NUMBER" -> valueNumber?.let { ChecklistAnswerValue.NumberValue(value = it, unit = unit) }
+        "SINGLE_CHOICE" -> valueText?.let(ChecklistAnswerValue::SingleChoice)
+        else -> mappingError("Unknown answer type for $checklistItemId: $answerType")
     }
 }
 
-private fun ChecklistAnswerValue?.toPersistedValue(): PersistedAnswerValue = when (this) {
-    null -> PersistedAnswerValue(answerType = "UNANSWERED")
-    ChecklistAnswerValue.Pass -> PersistedAnswerValue("PASS_FAIL_NA", valueText = "PASS")
-    ChecklistAnswerValue.Fail -> PersistedAnswerValue("PASS_FAIL_NA", valueText = "FAIL")
-    ChecklistAnswerValue.NotApplicable -> {
-        PersistedAnswerValue("PASS_FAIL_NA", valueText = "NOT_APPLICABLE")
-    }
+private fun toDomainSessionStatus(
+    lifecycleStatus: String,
+    syncStatus: String,
+): InspectionStatus {
+    return when (lifecycleStatus) {
+        "NOT_STARTED" -> InspectionStatus.NOT_STARTED
+        "IN_PROGRESS" -> InspectionStatus.IN_PROGRESS
+        "REVIEWING" -> InspectionStatus.REVIEWING
+        "COMPLETED" -> when (syncStatus) {
+            "PENDING", "SYNCING", "FAILED" -> InspectionStatus.SYNC_PENDING
+            "NOT_REQUIRED", "SYNCED" -> InspectionStatus.COMPLETED
+            else -> mappingError("Unknown sync status: $syncStatus")
+        }
 
-    is ChecklistAnswerValue.YesNo -> PersistedAnswerValue("YES_NO", valueBoolean = value)
-    is ChecklistAnswerValue.Text -> PersistedAnswerValue("TEXT", valueText = value)
-    is ChecklistAnswerValue.NumberValue -> {
-        PersistedAnswerValue("NUMBER", valueNumber = value, unit = unit)
-    }
-
-    is ChecklistAnswerValue.SingleChoice -> {
-        PersistedAnswerValue("SINGLE_CHOICE", valueText = optionId)
+        else -> mappingError("Unknown inspection lifecycle status: $lifecycleStatus")
     }
 }
 
-private data class PersistedAnswerValue(
-    val answerType: String,
-    val valueText: String? = null,
-    val valueNumber: Double? = null,
-    val valueBoolean: Boolean? = null,
-    val unit: String? = null,
-)
+private fun InspectionStatus.toLifecycleValue(): String = when (this) {
+    InspectionStatus.NOT_STARTED -> "NOT_STARTED"
+    InspectionStatus.IN_PROGRESS -> "IN_PROGRESS"
+    InspectionStatus.REVIEWING -> "REVIEWING"
+    InspectionStatus.COMPLETED,
+    InspectionStatus.SYNC_PENDING,
+    -> "COMPLETED"
+}
 
-private fun Double?.toExactInt(label: String): Int {
-    val value = this ?: invalidSession("Missing $label")
-    requireSessionValue(value.isFinite() && value == value.toInt().toDouble(), "Invalid $label: $value")
-    return value.toInt()
+private fun InspectionStatus.toSyncValue(existingSyncStatus: String): String = when (this) {
+    InspectionStatus.NOT_STARTED,
+    InspectionStatus.IN_PROGRESS,
+    InspectionStatus.REVIEWING,
+    -> "NOT_REQUIRED"
+
+    InspectionStatus.COMPLETED -> when (existingSyncStatus) {
+        "PENDING", "SYNCING", "FAILED" -> existingSyncStatus
+        else -> "SYNCED"
+    }
+
+    InspectionStatus.SYNC_PENDING -> "PENDING"
 }
 
 private fun requireSessionValue(condition: Boolean, message: String) {
-    if (!condition) invalidSession(message)
+    if (!condition) mappingError(message)
 }
 
-private fun invalidAnswer(message: String): Nothing = invalidSession(message)
-
-private fun invalidSession(message: String): Nothing {
+private fun mappingError(message: String): Nothing {
     throw PersistenceMappingException(message)
 }

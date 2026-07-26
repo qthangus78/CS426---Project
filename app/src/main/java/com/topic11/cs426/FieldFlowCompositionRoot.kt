@@ -4,7 +4,6 @@ import android.content.Context
 import com.slack.circuit.foundation.Circuit
 import com.topic11.cs426.domain.repository.AssetRepository
 import com.topic11.cs426.domain.repository.InspectionRepository
-import com.topic11.cs426.domain.repository.IssueRepository
 import com.topic11.cs426.domain.repository.TemplateRepository
 import com.topic11.cs426.domain.usecase.CalculateInspectionScoreUseCase
 import com.topic11.cs426.domain.usecase.CompleteInspectionUseCase
@@ -42,20 +41,17 @@ class FieldFlowCompositionRoot private constructor(
     companion object {
         /**
          * Creates the app-scoped object graph. [applicationContext] is intentionally accepted
-         * at this Android boundary so Phase 3 can build and seed Room here without affecting
-         * presentation wiring.
+         * at this Android boundary so Room-backed repositories can be built and seeded here
+         * later without leaking implementation details into feature modules.
          */
         fun create(applicationContext: Context): FieldFlowCompositionRoot {
-            // Phase 3 binding replacement point: create and seed Room-backed repositories here.
             val inspectionRepository = DemoInspectionRepository()
             val templateRepository = DemoTemplateRepository()
-            val issueRepository = DemoIssueRepository()
             val assetRepository = DemoAssetRepository()
 
             return createWithRepositories(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
-                issueRepository = issueRepository,
                 assetRepository = assetRepository,
             )
         }
@@ -63,7 +59,6 @@ class FieldFlowCompositionRoot private constructor(
         private fun createWithRepositories(
             inspectionRepository: InspectionRepository,
             templateRepository: TemplateRepository,
-            issueRepository: IssueRepository,
             assetRepository: AssetRepository,
         ): FieldFlowCompositionRoot {
             val observeInspectionSummaries = ObserveInspectionSummariesUseCase(inspectionRepository)
@@ -71,15 +66,13 @@ class FieldFlowCompositionRoot private constructor(
             val observeTemplate = ObserveTemplateUseCase(templateRepository)
             val saveInspectionDraft = SaveInspectionDraftUseCase(inspectionRepository)
             val validateInspection = ValidateInspectionUseCase()
-
             val completeInspection = CompleteInspectionUseCase(
                 inspectionRepository = inspectionRepository,
                 templateRepository = templateRepository,
                 assetRepository = assetRepository,
-                issueRepository = issueRepository,
                 validateInspection = validateInspection,
                 calculateScore = CalculateInspectionScoreUseCase(),
-                createIssue = CreateMaintenanceIssueUseCase(issueRepository),
+                createIssue = CreateMaintenanceIssueUseCase(),
                 scheduleNext = ScheduleNextInspectionUseCase(),
             )
 
