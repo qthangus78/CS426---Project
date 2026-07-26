@@ -36,5 +36,84 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      # assembleDebugAndroidTest is here and not only in the emulator job on purpose: it is the cheap
+      # half of the instrumented suite. If the tests stop compiling, this job says so in ~2 minutes
+      # instead of the failure surfacing 20 minutes later as an ambiguous emulator-job red.
       - name: Run lint, unit tests, and debug build
-        run: ./gradlew lintDebug test assembleDebug --no-daemon --stacktrace
+        run: ./gradlew lintDebug test assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+
+  instrumented-tests:
+    name: Instrumented tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # The emulator needs hardware acceleration to be usable. GitHub's ubuntu runners expose
+      # /dev/kvm but only to the kvm group, and the runner user is not in it.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      # Downloading the system image and recording the boot snapshot is most of this job's wall clock
+      # on a cold run. The key is tied to the device declaration, so it only invalidates when
+      # app/build.gradle.kts actually changes the device.
+      - name: Cache managed device and system image
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd
+            ~/.android/adb*
+            ${{ env.ANDROID_HOME }}/system-images
+          key: gmd-cidevice-aosp-atd-35-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: gmd-cidevice-aosp-atd-35-
+
+      # swiftshader_indirect is the software renderer. The default GPU mode auto-detects a host GPU,
+      # which a headless runner does not have, so both steps below have to pin it — setup boots the
+      # emulator too, to record the snapshot that makes later boots fast.
+      #
+      # That snapshot boot is also why setupTimeoutMinutes is raised: under software rendering the
+      # first boot regularly runs past the default timeout and fails the job before a single test
+      # has run. Observed locally on this project, not a precaution.
+      - name: Provision managed device
+        run: >
+          ./gradlew :app:ciDeviceSetup --no-daemon --stacktrace
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.experimental.testOptions.managedDevices.setupTimeoutMinutes=30
+
+      - name: Run instrumented tests
+        run: >
+          ./gradlew :app:ciDeviceDebugAndroidTest --no-daemon --stacktrace
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.experimental.testOptions.managedDevices.setupTimeoutMinutes=30
+
+      # Uploaded on failure too — the HTML report is the only way to tell a real regression from an
+      # emulator flake without re-running the job.
+      - name: Upload instrumented test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-test-report
+          path: |
+            app/build/reports/androidTests/managedDevice/
+            app/build/outputs/androidTest-results/managedDevice/
+          if-no-files-found: warn
+          retention-days: 7
